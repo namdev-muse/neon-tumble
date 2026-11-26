@@ -1,5 +1,23 @@
 # Neon Tumble — devlog
 
+## v0.3.1 — M3 playtest fixes (2026-11-26)
+
+The first live FUN playtest of the feel build came back NO-GO: the
+puzzle core and HUD/toast layer were praised, but the juice itself
+was thin — in-world pop text hid behind the cube in every beacon
+lit, the tile marker under the cube was a sliver the cube occluded,
+the wall bump and landing squash were too small to see, the
+low-moves meter had no urgency, lit beams poked out of the cube
+like sticks, and the rank line clipped at the clear panel's scroll
+edge. Fixes: pops now fire above the cube on dark contrast pills;
+the cell marker is a wide pulsing frame in the down-face colour;
+wall bump (0.22u over 0.26s + "Wall!" pop + stronger shake) and
+landing squash (30% dip over 0.28s, more dust) are unmissable;
+the MOVES meter turns red and pulses (fill and text) for the last
+3 moves; beams are shorter, uniform columns that dim when the cube
+stands in them; end-screen spacing tightened; R restarts from the
+complete/game-over screens too. Re-playtested after this push.
+
 ## v0.3.0 — M3 feel & juice (2026-11-26)
 
 Every event now fires its full feedback bundle. Before this milestone
