@@ -1,5 +1,36 @@
 # Neon Tumble — devlog
 
+## v1.0.0 — M6 release (2026-11-27)
+
+Release-only bump from the playtested v0.5.0 — no gameplay, feel or
+UI code changes. The game that earned the M5 live FUN playtest GO
+(12 hand-crafted levels, Endless Tumble, S/A/B ranks, full feedback
+tiers, FPS guard, accessibility toggles) ships exactly as played,
+with version strings updated to 1.0.0, README and screenshots
+refreshed from the release build. Known issues carried into
+release (none game-breaking): the landing squash and wall lean are
+hook-confirmed in code but have not had a human 60fps eyeball (the
+playtest browser renders at ~40fps in software); the clear-screen
+panel is 0.82-alpha, so the solved board reads softly through it
+(it stays fully visible around the panel).
+
+## v0.5.0 — M5 polish & robustness (2026-11-26)
+
+Known-issue sweep: a level card with a banked best (e.g. cleared
+via the `?level=N` playtest path) now always reads "Best …" with
+its rank badge — "Locked" only appears when there is no best, so
+RANK and Locked can never co-appear. Level cards sit on a
+near-opaque dark gradient (the live demo cube no longer bleeds
+through the text), the clear/game-over overlays use a lighter
+gradient so the solved platform stays visible around the panel,
+and empty menu lines collapse instead of holding open blank space.
+FPS guard (DPR 2 → 1.5 → 1), settings performance readout and
+accessibility toggles re-asserted in the render check; size sweep
+eye-checked at 1280x720 / 2560x1080 / 1080x2340 (the full 15x9
+level-12 platform fits portrait, all six beacons distinguishable).
+Live FUN playtest GO first round: level 1 cleared at par by eye
+(Score 1750, RANK S, parts verified against code).
+
 ## v0.4.0 — M4 progression & depth (2026-11-26)
 
 Endless Tumble: seeded depths that scale as you descend. Each depth
