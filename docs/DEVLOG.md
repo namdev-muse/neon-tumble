@@ -1,6 +1,31 @@
 # Neon Tumble — devlog
 
-## v0.1.0 — M1 core (2026-11-26, LOCAL ONLY — not yet shipped)
+## v0.2.0 — M2 level craft (2026-11-26)
+
+Twelve hand-crafted levels with a real difficulty curve. The nine new
+levels (The Loop, Crossroads, Twin Gates, Switchback, Hourglass, The
+Gauntlet, The Maze, Four Corners, Void Crown) each have their own
+platform shape, wall layout, beacon pattern and budget, and the BFS
+solver's minimum move counts rise strictly across all twelve levels:
+6, 14, 18, 21, 23, 26, 27, 28, 31, 34, 35, 37 — no cliff, each level a
+few more deliberate tumbles than the last. The finale, Void Crown,
+uses all six beacon colours on the largest platform (15x9).
+
+Design lesson found while tuning: a one-cell-wide corridor locks the
+cube's north/south faces away from the bottom forever (rolling E/W
+never cycles them down, and a single-file drop can't either) — a gold
+beacon at the end of a serpent corridor was provably unlightable. Every
+M2 platform therefore stays at least two cells deep everywhere, so a
+2x2 loop can always re-orient the cube onto any face. Walls force
+detours; they never amputate the orientation space.
+
+Verification: smoke + bot gates pass on all 12 levels (solver clears
+each in exactly par; no-input, spam and random-roll bots fail —
+random 0/50 on every level), headless render check PASS (autopilot
+clears levels 1, 3 and 12 in the browser), size sweep inspected by
+eye including the level-12 platform in portrait.
+
+## v0.1.0 — M1 core (2026-11-26, shipped live the same day)
 
 First build of game #15, the first 3D game of the next loop. This entry
 records a **local tree only**: no GitHub repo exists yet, nothing has
