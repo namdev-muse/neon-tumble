@@ -1,5 +1,24 @@
 # Neon Tumble — devlog
 
+## v0.4.0 — M4 progression & depth (2026-11-26)
+
+Endless Tumble: seeded depths that scale as you descend. Each depth
+is generated deterministically from (seed, depth) — platform grows
+7x4 → 15x9, beacons 1 → 6, walls accumulate, and budget slack above
+par shrinks from ~47% to a 12% floor — and is verified solvable by
+the BFS solver inside the depth's par band before it is shown (an
+unsolvable or trivial candidate is rejected, never shipped). Clear
+a depth to build your streak and run score; fail and the run ends.
+Best streak + best score are saved (max-only) and shown on the menu,
+the HUD and both end screens; the per-depth rank badge shows on the
+clear screen too. Ranks S/A/B (saved per level since M1, badged on
+level cards and the clear screen) now also tally on the menu line
+("Ranks S×… A×… B×…"). Playtest path: `?endless=1&seed=N&depth=N`.
+Verification: smoke 176/176, bot gates pass (solver rides to depth 8
+on three seeds; random-roll 0/50 at depths 1/4/8; spam never wins),
+render check PASS including the full endless flow (start → clear →
+Next Depth → bank → menu best line).
+
 ## v0.3.3 — M3 third playtest fixes (2026-11-26)
 
 The third playtest passed pop contrast, wall lean (weak), cell
