@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Neon Tumble — 3D Neon Cube-Rolling Puzzle</title>
+<meta name="description" content="Neon Tumble: a 3D neon cube-rolling puzzle. Roll a six-coloured cube across floating platforms and land the matching face on every beacon.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+<div id="game-container"></div>
+<div id="hit-flash" class="hit-flash" aria-hidden="true"></div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hud-left">
+    <span id="hud-level">Level 1 — First Tumble</span>
+    <span id="hud-time">0:00.0</span>
+    <span id="hud-best" class="hud-best">Best —</span>
+  </div>
+  <div class="hud-mid">
+    <span id="hud-beacons">Beacons 0/1</span>
+    <span id="hud-face">Face down <span id="hud-face-swatch" class="face-swatch"></span><span id="hud-face-name">Magenta</span></span>
+    <span id="hud-moves" class="hud-moves"><span class="hud-moves-label">MOVES</span><span class="hud-moves-track"><span id="hud-moves-fill"></span></span><span id="hud-moves-left">11 left</span></span>
+  </div>
+  <div class="hud-right">
+    <button id="btn-mute-hud" class="icon-btn" type="button" aria-label="Toggle sound">Sound: On</button>
+    <button id="btn-pause" class="icon-btn" type="button" aria-label="Pause game">Pause</button>
+  </div>
+</div>
+<div id="hud-toast" class="hud-toast" aria-hidden="true"></div>
+<div id="pops" class="pops" aria-hidden="true"></div>
+<div id="sr-status" class="sr-only" role="status" aria-live="polite"></div>
+
+<!-- Touch D-pad -->
+<div id="touch-controls" class="hidden">
+  <div class="dpad" role="group" aria-label="Roll controls">
+    <button id="btn-roll-n" class="touch-btn dpad-n" type="button" aria-label="Roll north">&#9650;</button>
+    <button id="btn-roll-w" class="touch-btn dpad-w" type="button" aria-label="Roll west">&#9664;</button>
+    <button id="btn-roll-e" class="touch-btn dpad-e" type="button" aria-label="Roll east">&#9654;</button>
+    <button id="btn-roll-s" class="touch-btn dpad-s" type="button" aria-label="Roll south">&#9660;</button>
+  </div>
+</div>
+
+<!-- Main menu -->
+<div id="menu" class="overlay">
+  <div class="panel panel-menu">
+    <h1>NEON TUMBLE</h1>
+    <p class="tagline">Roll the cube. Land the matching face on every beacon — then reach the exit before your moves run out.</p>
+    <p id="webgl-error" class="webgl-error hidden">3D graphics couldn't start in this browser — Neon Tumble needs WebGL. Try a recent Chrome, Edge or Firefox on a device with graphics support.</p>
+    <div class="menu-col menu-actions">
+      <button id="btn-play" class="btn primary" type="button">Play</button>
+      <button id="btn-levels" class="btn" type="button">Levels</button>
+      <button id="btn-howto" class="btn" type="button">How to Play</button>
+      <button id="btn-settings" class="btn" type="button">Settings</button>
+      <button id="btn-mute-menu" class="btn small" type="button">Sound: On</button>
+      <p id="menu-best" class="menu-best"></p>
+      <p id="menu-hint" class="menu-best"></p>
+    </div>
+    <div class="menu-col menu-setup">
+      <div id="level-select" class="track-select" aria-label="Level select"></div>
+      <p id="level-hint" class="set-hint"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Level select -->
+<div id="levels" class="overlay hidden">
+  <div class="panel">
+    <h2>Levels</h2>
+    <div id="level-grid" class="track-select" aria-label="All levels"></div>
+    <p id="levels-hint" class="set-hint"></p>
+    <button id="btn-levels-back" class="btn primary" type="button">Back to Menu</button>
+  </div>
+</div>
+
+<!-- How to play -->
+<div id="howto" class="overlay hidden">
+  <div class="panel">
+    <h2>How to Play</h2>
+    <ul class="howto-list">
+      <li>You roll a <strong>six-coloured cube</strong> across a floating platform, one cell at a time. Every roll tips the cube — the face that ends up <strong>underneath</strong> is what matters.</li>
+      <li>Each <strong>beacon pad</strong> has a colour. It lights only when the cube lands on it with the <strong>matching face down</strong>. The HUD always names the face currently down.</li>
+      <li>Light <strong>every beacon</strong>, then roll onto the <strong>gold exit portal</strong> to clear the level. The portal stays locked until all beacons burn.</li>
+      <li>Every roll costs a <strong>move</strong> from the level's budget — run out and the level fails. <strong>Walls</strong> block rolls (no move spent), and rolling off the <strong>edge</strong> drops the cube.</li>
+      <li>Score comes from the clear, the moves you saved and your time. Each clear earns a <strong>rank</strong>: S (in par moves), A (within par + 2), B (cleared). Clearing a level unlocks the next.</li>
+    </ul>
+    <h3>Controls</h3>
+    <ul class="howto-list">
+      <li>Arrow keys / WASD: roll the cube &middot; R: restart level &middot; P: pause &middot; M: mute</li>
+      <li>Mouse / touch: tap the on-screen D-pad, or swipe on the platform to roll</li>
+      <li>Esc closes a panel &middot; Enter confirms on menus</li>
+    </ul>
+    <button id="btn-howto-close" class="btn primary" type="button">Got it</button>
+  </div>
+</div>
+
+<!-- Settings -->
+<div id="settings" class="overlay hidden">
+  <div class="panel">
+    <h2>Settings</h2>
+    <label class="slider-row">Volume
+      <input id="volume-range" type="range" min="0" max="100" value="60" aria-label="Volume">
+      <span id="volume-value">60%</span>
+    </label>
+    <label class="slider-row">Screen shake
+      <input id="shake-range" type="range" min="0" max="100" value="100" aria-label="Screen shake strength">
+      <span id="shake-value">100%</span>
+    </label>
+    <label class="toggle-row">Music
+      <input id="music-toggle" type="checkbox" checked aria-label="Music on or off">
+    </label>
+    <label class="toggle-row">Sound effects
+      <input id="sfx-toggle" type="checkbox" checked aria-label="Sound effects on or off">
+    </label>
+    <label class="toggle-row">Reduce flashing
+      <input id="reduce-flashing" type="checkbox" aria-label="Reduce flashing — no bright flashes">
+    </label>
+    <label class="slider-row">Text size
+      <select id="text-size-select" aria-label="Text size">
+        <option value="normal">Normal</option>
+        <option value="large">Large</option>
+        <option value="xlarge">Extra large</option>
+      </select>
+    </label>
+    <label class="toggle-row">High contrast
+      <input id="high-contrast-toggle" type="checkbox" aria-label="High contrast — brighter text and panels">
+    </label>
+    <p id="perf-line" class="perf-line">Performance: —</p>
+    <button id="btn-settings-close" class="btn primary" type="button">Back to Menu</button>
+  </div>
+</div>
+
+<!-- Level complete -->
+<div id="complete" class="overlay hidden">
+  <div class="panel">
+    <h2 id="complete-title">Level Cleared</h2>
+    <p id="complete-score" class="big-score">Score 0</p>
+    <p id="complete-parts"></p>
+    <p id="complete-detail"></p>
+    <p id="complete-best" class="complete-best"></p>
+    <p id="complete-rank" class="complete-best"></p>
+    <button id="btn-next" class="btn primary" type="button">Next Level</button>
+    <button id="btn-replay" class="btn" type="button">Roll Again</button>
+    <button id="btn-menu-complete" class="btn" type="button">Main Menu</button>
+  </div>
+</div>
+
+<!-- Level lost -->
+<div id="gameover" class="overlay hidden">
+  <div class="panel">
+    <h2 id="gameover-title">Level Failed</h2>
+    <p id="gameover-detail" class="gameover-detail"></p>
+    <p id="gameover-best" class="complete-best"></p>
+    <button id="btn-retry" class="btn primary" type="button">Try Again</button>
+    <button id="btn-menu-over" class="btn" type="button">Main Menu</button>
+  </div>
+</div>
+
+<!-- Pause -->
+<div id="pause" class="overlay hidden">
+  <div class="panel">
+    <h2>Paused</h2>
+    <button id="btn-resume" class="btn primary" type="button">Resume</button>
+    <button id="btn-restart" class="btn" type="button">Restart Level</button>
+    <button id="btn-quit" class="btn" type="button">Quit to Menu</button>
+    <label class="slider-row">Screen shake
+      <input id="shake-range-pause" type="range" min="0" max="100" value="100" aria-label="Screen shake strength">
+      <span id="shake-value-pause">100%</span>
+    </label>
+    <button id="btn-mute-pause" class="btn small" type="button">Sound: On</button>
+  </div>
+</div>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>
