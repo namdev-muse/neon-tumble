@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.1 — smoke tests for the pure sim (physics.js).
+// Neon Tumble v0.3.2 — smoke tests for the pure sim (physics.js).
 // Run: node tests/smoke.js
 import {
   VERSION, LEVELS, levelById, START_ORIENT, rollOrientation, orientKey,
@@ -16,7 +16,7 @@ function check(name, cond, extra) {
 }
 
 console.log('smoke: Neon Tumble ' + VERSION);
-check('VERSION is 0.3.1', VERSION === '0.3.1');
+check('VERSION is 0.3.2', VERSION === '0.3.2');
 check('six colours defined', COLOURS.length === 6);
 
 // --- orientation math -------------------------------------------------------

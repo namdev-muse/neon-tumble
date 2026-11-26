@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.1 — headless browser render check.
+// Neon Tumble v0.3.2 — headless browser render check.
 // Serves the game dir over local HTTP, loads it in a headless browser,
 // and asserts the M1 core, by hook and by eye:
 //   - the menu renders over a LIVE 3D demo (the solver rolls the cube
