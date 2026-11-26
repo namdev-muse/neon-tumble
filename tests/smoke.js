@@ -1,4 +1,4 @@
-// Neon Tumble v0.2.1 — smoke tests for the pure sim (physics.js).
+// Neon Tumble v0.3.0 — smoke tests for the pure sim (physics.js).
 // Run: node tests/smoke.js
 import {
   VERSION, LEVELS, levelById, START_ORIENT, rollOrientation, orientKey,
@@ -16,7 +16,7 @@ function check(name, cond, extra) {
 }
 
 console.log('smoke: Neon Tumble ' + VERSION);
-check('VERSION is 0.2.1', VERSION === '0.2.1');
+check('VERSION is 0.3.0', VERSION === '0.3.0');
 check('six colours defined', COLOURS.length === 6);
 
 // --- orientation math -------------------------------------------------------
@@ -195,6 +195,19 @@ check('feedback table covers roll/beacon/wrongface/wall/fell/budget/won',
 check('solve fires a large-tier bundle', FEEDBACK.won.trauma >= FEEDBACK_TIERS.large.trauma[0] && FEEDBACK.won.hitStop >= 0.1);
 check('beacon fires a medium-tier bundle', FEEDBACK.beacon.trauma >= FEEDBACK_TIERS.medium.trauma[0] && FEEDBACK.beacon.hitStop >= 0.04);
 check('feedback layers named', FEEDBACK_LAYERS.includes('sound') && FEEDBACK_LAYERS.includes('shake'));
+// M3: every event fires a bundle with its own voice — the three
+// denied events must not share one buzz, and every tier carries
+// sound + shake so no event is ever silent or dead.
+check('denied events have distinct voices (wrongface/wall/exitlocked)',
+  new Set([FEEDBACK.wrongface.sfx, FEEDBACK.wall.sfx, FEEDBACK.exitlocked.sfx]).size === 3 &&
+  FEEDBACK.wrongface.sfx !== 'denied' && FEEDBACK.wall.sfx !== 'denied');
+check('every feedback tier carries sound + trauma',
+  Object.values(FEEDBACK).every((t) => t.sfx && t.trauma > 0));
+check('queue-full has its own tier (never a silent drop)', !!FEEDBACK.queuefull && FEEDBACK.queuefull.sfx === 'denied');
+check('roll is a small-tier bundle (trauma in small band, no hit-stop)',
+  FEEDBACK.roll.trauma >= FEEDBACK_TIERS.small.trauma[0] && FEEDBACK.roll.trauma <= FEEDBACK_TIERS.small.trauma[1] && FEEDBACK.roll.hitStop === 0);
+check('fell and budget are large-tier bundles',
+  FEEDBACK.fell.trauma >= FEEDBACK_TIERS.large.trauma[0] && FEEDBACK.budget.hitStop >= 0.1);
 
 console.log(`smoke: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

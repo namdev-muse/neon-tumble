@@ -1,4 +1,4 @@
-// Neon Tumble v0.2.1 — headless browser render check.
+// Neon Tumble v0.3.0 — headless browser render check.
 // Serves the game dir over local HTTP, loads it in a headless browser,
 // and asserts the M1 core, by hook and by eye:
 //   - the menu renders over a LIVE 3D demo (the solver rolls the cube
@@ -179,6 +179,13 @@ try {
     document.getElementById('hud-moves-left').textContent.includes('10 left')));
   check('HUD names the face down', await page.evaluate(() =>
     document.getElementById('hud-face-name').textContent === 'Lime'));
+  // M3: the roll fires its full bundle (tier counter), and the MOVES
+  // meter drains with the budget (10/11 after one roll).
+  check('roll bundle fired (roll counter)', await page.evaluate(() => window.__tumble.feel().fxCounts.roll >= 1));
+  check('MOVES meter tracks the budget (fill ~91% after 1 of 11 spent)', await page.evaluate(() => {
+    const w = parseFloat(document.getElementById('hud-moves-fill').style.width);
+    return w > 88 && w < 94;
+  }), await page.evaluate(() => document.getElementById('hud-moves-fill').style.width));
   // Wrong-face denied cue: E,E,N,E,S lands on the magenta beacon with
   // the wrong face down (probe path verified in tests/smoke.js).
   await page.evaluate(() => { const T = window.__tumble; T.roll('E'); T.roll('E'); T.roll('N'); });
@@ -189,6 +196,7 @@ try {
   check('wrong-face landing names the reason (denied cue, never silence)', await page.evaluate(() =>
     document.getElementById('hud-toast').textContent.includes('Wrong face')));
   check('wrong-face landing leaves the beacon dark', await page.evaluate(() => window.__tumble.info().lit === 0));
+  check('wrong-face bundle fired (wrongface counter)', await page.evaluate(() => window.__tumble.feel().fxCounts.wrongface >= 1));
   // Restart fresh for the autopilot clear.
   await page.evaluate(() => window.__tumble.startLevel(1));
   await page.evaluate(() => window.__tumble.autopilot(true));
@@ -246,6 +254,7 @@ try {
   await page2.waitForFunction(() => window.__tumble.info().lastDenied === 'wall', null, { timeout: 10000 });
   check('wall roll is denied by name and spends no move', await page2.evaluate(() =>
     window.__tumble.info().moves === 3 && document.getElementById('hud-toast').textContent.includes('Wall')));
+  check('wall bundle fired (wall counter, not generic denied)', await page2.evaluate(() => window.__tumble.feel().fxCounts.wall >= 1));
   // Rapid-input regression (M2 playtest): six rolls fired in one batch
   // must ALL execute — position, orientation and move count stay in
   // lockstep (the sim rolls atomically; a silently dropped input is
@@ -257,6 +266,26 @@ try {
   const rapid = await page2.evaluate(() => window.__tumble.info());
   check('rapid batched input: all 6 rolls execute, cube ends at (1,3)',
     rapid.moves === 6 && rapid.x === 1 && rapid.y === 3, JSON.stringify(rapid));
+  // M3: a 7th/8th roll fired in the same batch overflows the queue —
+  // the drop must be NAMED (toast), never a silent buzz.
+  await page2.evaluate(() => window.__tumble.startLevel(2));
+  await page2.waitForTimeout(700);
+  await page2.evaluate(() => { const T = window.__tumble; for (let i = 0; i < 8; i++) T.roll('E'); });
+  check('queue-full drop names the reason (toast, never silence)', await page2.evaluate(() =>
+    window.__tumble.info().lastDenied === 'queuefull' &&
+    document.getElementById('hud-toast').textContent.includes('Too fast')));
+  check('queue-full bundle fired (queuefull counter)', await page2.evaluate(() => window.__tumble.feel().fxCounts.queuefull >= 1));
+  // M3: MOVES meter enters its pulsing low state at 2 moves left.
+  // Level 1 (budget 11): oscillate E/W nine times -> 2 left.
+  await page2.evaluate(() => window.__tumble.startLevel(1));
+  await page2.waitForTimeout(700);
+  await page2.evaluate(() => { const T = window.__tumble; for (const d of ['E', 'W', 'E', 'W', 'E']) T.roll(d); });
+  await page2.waitForFunction(() => window.__tumble.info().moves === 5, null, { timeout: 15000 });
+  await page2.evaluate(() => { const T = window.__tumble; for (const d of ['W', 'E', 'W', 'E']) T.roll(d); });
+  await page2.waitForFunction(() => window.__tumble.info().movesLeft === 2, null, { timeout: 15000 });
+  check('MOVES meter pulses low at 2 moves left', await page2.evaluate(() =>
+    document.getElementById('hud-moves-fill').classList.contains('low') &&
+    document.getElementById('hud-moves-left').textContent.includes('2 left')));
   await context2.close();
 
   // --- ?level=3 playtest path --------------------------------------------------
