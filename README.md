@@ -31,22 +31,22 @@ the exit portal before your moves run out.
 There is no auto-roll, no next-move hint and no solution preview — the
 cube's visible faces show its current state only.
 
-## Levels (v0.2.0)
+## Levels (v0.2.1)
 
 | # | Level | Beacons | Par | Budget |
 |---|-------|---------|-----|--------|
 | 1 | First Tumble | 1 (Magenta) | 6 | 11 |
 | 2 | Crosscurrent | 2 (Lime, Gold) | 14 | 18 |
 | 3 | The Vault | 3 (Orange, Violet, Magenta) | 18 | 22 |
-| 4 | The Loop | 2 (Lime, Gold) | 21 | 26 |
-| 5 | Crossroads | 4 (Lime, Magenta, Violet, Orange) | 23 | 28 |
-| 6 | Twin Gates | 3 (Cyan, Orange, Magenta) | 26 | 31 |
-| 7 | Switchback | 3 (Cyan, Violet, Gold) | 27 | 32 |
-| 8 | Hourglass | 3 (Cyan, Violet, Orange) | 28 | 33 |
-| 9 | The Gauntlet | 6 (all six colours) | 31 | 37 |
-| 10 | The Maze | 3 (Lime, Gold, Cyan) | 34 | 40 |
-| 11 | Four Corners | 4 (Cyan, Orange, Violet, Magenta) | 35 | 41 |
-| 12 | Void Crown | 6 (all six colours) | 37 | 43 |
+| 4 | The Loop | 2 (Lime, Gold) | 21 | 30 |
+| 5 | Crossroads | 4 (Lime, Magenta, Violet, Orange) | 23 | 32 |
+| 6 | Twin Gates | 3 (Cyan, Orange, Magenta) | 26 | 36 |
+| 7 | Switchback | 3 (Cyan, Violet, Gold) | 27 | 37 |
+| 8 | Hourglass | 3 (Cyan, Violet, Orange) | 28 | 38 |
+| 9 | The Gauntlet | 6 (all six colours) | 31 | 43 |
+| 10 | The Maze | 3 (Lime, Gold, Cyan) | 34 | 46 |
+| 11 | Four Corners | 4 (Cyan, Orange, Violet, Magenta) | 35 | 47 |
+| 12 | Void Crown | 6 (all six colours) | 37 | 49 |
 
 Pars are the BFS solver's minimum move counts (position + orientation +
 lit beacons), verified by the bot harness. They form a strictly

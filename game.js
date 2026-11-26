@@ -1,4 +1,4 @@
-// Neon Tumble v0.2.0 — Three.js renderer + menus + game feel.
+// Neon Tumble v0.2.1 — Three.js renderer + menus + game feel.
 // The simulation lives in physics.js (pure, no DOM); this file owns
 // the 3D scene, the screen stack, input, Web Audio SFX/music and the
 // feel tiers. Grid (x east, y south) maps to world (x east, z south);
@@ -189,7 +189,7 @@ try {
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
   dirLight.position.set(6, 12, 4);
   scene.add(dirLight);
-  const rim = new THREE.PointLight(0xb26bff, 30, 40);
+  const rim = new THREE.PointLight(0x9d4dff, 30, 40);
   rim.position.set(-8, 5, -6);
   scene.add(rim);
   // Starfield
@@ -357,7 +357,7 @@ function buildLevelScene(level) {
         const wall = new THREE.Mesh(wallGeo, wallMat);
         wall.position.set(w.x, 0.42, w.z);
         levelGroup.add(wall);
-        const we = new THREE.LineSegments(new THREE.EdgesGeometry(wallGeo), new THREE.LineBasicMaterial({ color: 0xb26bff }));
+        const we = new THREE.LineSegments(new THREE.EdgesGeometry(wallGeo), new THREE.LineBasicMaterial({ color: 0x9d4dff }));
         we.position.copy(wall.position);
         levelGroup.add(we);
       }
@@ -404,13 +404,13 @@ function buildLevelScene(level) {
     const w = cellToWorld(level, level.exit.x, level.exit.y);
     const torus = new THREE.Mesh(
       new THREE.TorusGeometry(0.36, 0.055, 12, 36),
-      new THREE.MeshStandardMaterial({ color: 0xffd23d, emissive: 0xffd23d, emissiveIntensity: 0.9, roughness: 0.3 }),
+      new THREE.MeshStandardMaterial({ color: 0xffdf2e, emissive: 0xffdf2e, emissiveIntensity: 0.9, roughness: 0.3 }),
     );
     torus.position.set(w.x, 0.45, w.z);
     levelGroup.add(torus);
     const disc = new THREE.Mesh(
       new THREE.CylinderGeometry(0.36, 0.36, 0.06, 24),
-      new THREE.MeshStandardMaterial({ color: 0xffd23d, emissive: 0xffd23d, emissiveIntensity: 0.35, roughness: 0.5 }),
+      new THREE.MeshStandardMaterial({ color: 0xffdf2e, emissive: 0xffdf2e, emissiveIntensity: 0.35, roughness: 0.5 }),
     );
     disc.position.set(w.x, 0.03, w.z);
     levelGroup.add(disc);
@@ -491,7 +491,16 @@ function solveFrom(run) {
 // ---------------------------------------------------------------- rolling
 function queueRoll(dir) {
   if (state.phase !== 'playing' || !state.run) return false;
-  if (rollQueue.length >= 3) return false;
+  // A full queue must never swallow an input silently (Tide lesson):
+  // the M2 playtest desynced exactly this way — batched inputs past
+  // the old cap of 3 vanished with no feedback, so the player's
+  // mental model of the cube drifted from the sim. Cap is 6 (a full
+  // reorientation loop plus change) and a drop fires the denied cue.
+  if (rollQueue.length >= 6) {
+    state.lastDenied = 'queuefull';
+    feedback('denied');
+    return false;
+  }
   rollQueue.push(dir);
   return true;
 }
@@ -553,7 +562,7 @@ function landRoll() {
     toast(`Exit locked — light every beacon first (${ev.lit}/${ev.total})`);
   }
   if (anim.outcome === 'won') {
-    feedback('won', { ...pos, hex: '#ffd23d' }, 'CLEAR!');
+    feedback('won', { ...pos, hex: '#ffdf2e' }, 'CLEAR!');
     state.slowMoT = 0.9;
     state.endTimer = 0.9;
   } else if (anim.outcome === 'budget') {

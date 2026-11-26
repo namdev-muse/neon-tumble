@@ -1,4 +1,4 @@
-// Neon Tumble v0.2.0 — pure simulation core (no DOM, no Three.js).
+// Neon Tumble v0.2.1 — pure simulation core (no DOM, no Three.js).
 //
 // A 3D neon cube-rolling puzzle: a cube with six distinctly coloured
 // faces rolls one cell at a time across floating grid platforms. Each
@@ -23,7 +23,7 @@
 // (BFS over position + orientation + lit mask) gives identical results
 // for identical inputs.
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.2.1';
 
 export const DIRS = {
   E: { x: 1, y: 0 },
@@ -35,11 +35,11 @@ export const DIR_LIST = ['E', 'W', 'N', 'S'];
 
 export const COLOURS = [
   { name: 'Cyan', hex: '#22e6ff' },
-  { name: 'Magenta', hex: '#ff3df0' },
-  { name: 'Gold', hex: '#ffd23d' },
-  { name: 'Violet', hex: '#b26bff' },
+  { name: 'Magenta', hex: '#ff2e9e' },
+  { name: 'Gold', hex: '#ffdf2e' },
+  { name: 'Violet', hex: '#9d4dff' },
   { name: 'Lime', hex: '#7dff4d' },
-  { name: 'Orange', hex: '#ff6b1a' },
+  { name: 'Orange', hex: '#ff5200' },
 ];
 
 export const START_ORIENT = { top: 0, bottom: 1, north: 2, south: 3, east: 4, west: 5 };
@@ -116,7 +116,7 @@ export const LEVELS = [
     id: 2,
     name: 'Crosscurrent',
     hint: 'Two beacons, two faces. The wall forces a detour — plan the tumble.',
-    accent: '#ff3df0',
+    accent: '#ff2e9e',
     grid: [
       '.......',
       '.S.....',
@@ -130,7 +130,7 @@ export const LEVELS = [
     id: 3,
     name: 'The Vault',
     hint: 'Three beacons around the vault. Every roll is an orientation decision.',
-    accent: '#ffd23d',
+    accent: '#ffdf2e',
     grid: [
       '..##....',
       '.S...5..',
@@ -151,7 +151,7 @@ export const LEVELS = [
     id: 4,
     name: 'The Loop',
     hint: 'Two beacons on opposite sides of the wall blocks. Loop around them — the loop itself turns the cube.',
-    accent: '#b26bff',
+    accent: '#9d4dff',
     grid: [
       '...........',
       '.S..##.....',
@@ -161,7 +161,7 @@ export const LEVELS = [
       '.2....##..X',
       '...........',
     ],
-    budget: 26, parMoves: 21, parTime: 125,
+    budget: 30, parMoves: 21, parTime: 125,
   }),
   parseLevel({
     id: 5,
@@ -178,13 +178,13 @@ export const LEVELS = [
       '.....5......',
       '............',
     ],
-    budget: 28, parMoves: 23, parTime: 135,
+    budget: 32, parMoves: 23, parTime: 135,
   }),
   parseLevel({
     id: 6,
     name: 'Twin Gates',
     hint: 'Three beacons behind twin wall gates. Thread the gaps without wasting the face you need.',
-    accent: '#ff6b1a',
+    accent: '#ff5200',
     grid: [
       '..............',
       '.S....##....0.',
@@ -194,7 +194,7 @@ export const LEVELS = [
       '....1........X',
       '..............',
     ],
-    budget: 31, parMoves: 26, parTime: 150,
+    budget: 36, parMoves: 26, parTime: 150,
   }),
   parseLevel({
     id: 7,
@@ -210,13 +210,13 @@ export const LEVELS = [
       '............X',
       '.2...........',
     ],
-    budget: 32, parMoves: 27, parTime: 155,
+    budget: 37, parMoves: 27, parTime: 155,
   }),
   parseLevel({
     id: 8,
     name: 'Hourglass',
     hint: 'The hourglass pinches in the middle. Pass through it twice — once for each face.',
-    accent: '#ff3df0',
+    accent: '#ff2e9e',
     grid: [
       '............',
       '.S....0.....',
@@ -227,13 +227,13 @@ export const LEVELS = [
       '....5.......',
       '...........X',
     ],
-    budget: 33, parMoves: 28, parTime: 160,
+    budget: 38, parMoves: 28, parTime: 160,
   }),
   parseLevel({
     id: 9,
     name: 'The Gauntlet',
     hint: 'All six faces, all six beacons. The gauntlet runs the full length of the platform.',
-    accent: '#ffd23d',
+    accent: '#ffdf2e',
     grid: [
       'S............X',
       '....##........',
@@ -245,13 +245,13 @@ export const LEVELS = [
       '..............',
       '....1....4....',
     ],
-    budget: 37, parMoves: 31, parTime: 175,
+    budget: 43, parMoves: 31, parTime: 175,
   }),
   parseLevel({
     id: 10,
     name: 'The Maze',
     hint: 'Walls everywhere and only three beacons — the maze is the puzzle. Count your faces at every turn.',
-    accent: '#b26bff',
+    accent: '#9d4dff',
     grid: [
       'S....#......',
       '.....#..4...',
@@ -262,7 +262,7 @@ export const LEVELS = [
       '.........#X.',
       '....0.......',
     ],
-    budget: 40, parMoves: 34, parTime: 190,
+    budget: 46, parMoves: 34, parTime: 190,
   }),
   parseLevel({
     id: 11,
@@ -279,13 +279,13 @@ export const LEVELS = [
       '3..........X',
       '.....1......',
     ],
-    budget: 41, parMoves: 35, parTime: 195,
+    budget: 47, parMoves: 35, parTime: 195,
   }),
   parseLevel({
     id: 12,
     name: 'Void Crown',
     hint: 'The crown: every colour, every corner, one long tumble home. Spend nothing twice.',
-    accent: '#ff6b1a',
+    accent: '#ff5200',
     grid: [
       'S..............',
       '.....##........',
@@ -297,7 +297,7 @@ export const LEVELS = [
       '..............X',
       '....1....4.....',
     ],
-    budget: 43, parMoves: 37, parTime: 205,
+    budget: 49, parMoves: 37, parTime: 205,
   }),
 ];
 
