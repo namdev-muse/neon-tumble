@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.3 — Three.js renderer + menus + game feel.
+// Neon Tumble v0.4.0 — Three.js renderer + menus + game feel.
 // The simulation lives in physics.js (pure, no DOM); this file owns
 // the 3D scene, the screen stack, input, Web Audio SFX/music and the
 // feel tiers. Grid (x east, y south) maps to world (x east, z south);
@@ -10,7 +10,7 @@ import {
   rollOrientation, orientKey, beaconAt, isFloor, isWall,
   createRun, startRun, rollCube, solve, litCount, allLit, movesLeft,
   rankFor, defaultSave, serializeSave, parseSave, recordBest,
-  isLevelUnlocked, FEEDBACK,
+  isLevelUnlocked, FEEDBACK, generateEndlessLevel, recordEndlessBest,
 } from './physics.js';
 
 const SAVE_KEY = 'neon-tumble-save-v1';
@@ -36,6 +36,8 @@ const settings = save.settings;
 // ---------------------------------------------------------------- state
 const state = {
   phase: 'menu', // 'menu' | 'playing' | 'paused' | 'complete' | 'gameover'
+  mode: 'campaign', // 'campaign' | 'endless' (M4)
+  endless: { seed: 0, depth: 1, streak: 0, score: 0 },
   levelId: 1,
   run: null,
   demoRun: createRun(LEVELS[0]),
@@ -734,9 +736,19 @@ function buildLevelCards(container, onPick) {
 }
 function updateMenuText() {
   const cleared = Object.keys(save.best).filter((id) => save.best[id] && save.best[id].won).length;
-  $('menu-best').textContent = cleared > 0 ? `Cleared ${cleared}/${LEVELS.length} levels` : '';
+  // M4: rank tally across cleared levels (ranks live on the cards;
+  // the menu line is the collection summary).
+  const tally = { S: 0, A: 0, B: 0 };
+  for (const id of Object.keys(save.best)) {
+    const r = save.best[id] && save.best[id].rank;
+    if (r && tally[r] !== undefined) tally[r] += 1;
+  }
+  const ranks = (tally.S + tally.A + tally.B) > 0 ? ` · Ranks S×${tally.S} A×${tally.A} B×${tally.B}` : '';
+  $('menu-best').textContent = cleared > 0 ? `Cleared ${cleared}/${LEVELS.length} levels${ranks}` : '';
+  $('menu-hint').textContent = save.endless && save.endless.bestStreak > 0
+    ? `Endless best: streak ${save.endless.bestStreak} · score ${save.endless.bestScore}`
+    : '';
   const level = levelById(state.levelId);
-  $('menu-hint').textContent = '';
   $('level-hint').textContent = level ? `Selected: ${level.name} — ${level.hint}` : '';
 }
 function updateMuteButtons() {
@@ -754,6 +766,7 @@ function toggleMute() {
 }
 function showMenu() {
   state.phase = 'menu';
+  state.mode = 'campaign';
   state.autopilot = false;
   state.run = null;
   rollQueue = [];
@@ -780,12 +793,10 @@ function showMenu() {
 }
 
 // ---------------------------------------------------------------- run control
-function startLevel(id, unlockedOverride = false) {
-  if (!unlockedOverride && !isLevelUnlocked(save, id)) return;
+function beginRun(run) {
   ensureAudio();
   startMusic();
-  state.levelId = id;
-  state.run = startRun(id);
+  state.run = run;
   state.phase = 'playing';
   state.autopilot = false;
   state.autoTimer = 0;
@@ -809,11 +820,56 @@ function startLevel(id, unlockedOverride = false) {
   updateHUD();
   toast(state.run.level.hint, 3);
 }
-function restartLevel() { startLevel(state.levelId, true); }
+function startLevel(id, unlockedOverride = false) {
+  if (!unlockedOverride && !isLevelUnlocked(save, id)) return;
+  state.mode = 'campaign';
+  state.levelId = id;
+  beginRun(startRun(id));
+}
+// M4: Endless Tumble — seeded depths, streak + score banked. A depth
+// is generated (and solver-verified) on demand; clearing it advances
+// the streak, failing ends the run. Best streak/score are max-only.
+function startEndless(seed) {
+  state.mode = 'endless';
+  state.endless = {
+    seed: Number.isInteger(seed) ? seed : (Date.now() % 1000000),
+    depth: 1, streak: 0, score: 0,
+  };
+  loadEndlessDepth();
+}
+function loadEndlessDepth() {
+  const level = generateEndlessLevel(state.endless.seed, state.endless.depth);
+  if (!level) { // generator exhausted (never seen in testing) — end honestly
+    bankEndlessBest();
+    quitToMenu();
+    return;
+  }
+  beginRun(createRun(level));
+}
+function bankEndlessBest() {
+  recordEndlessBest(save, state.endless.streak, state.endless.score);
+  persistSave();
+}
+function restartLevel() {
+  if (state.mode === 'endless') {
+    if (state.phase === 'complete') { state.endless.depth += 1; loadEndlessDepth(); }
+    else if (state.phase === 'gameover') startEndless(); // run is over — R starts a fresh one
+    else loadEndlessDepth(); // same seed + depth regenerates the identical puzzle
+    return;
+  }
+  startLevel(state.levelId, true);
+}
 function endRun() {
   const run = state.run;
   if (!run) return;
   hideToast();
+  if (state.mode === 'endless') { endlessEndRun(run); return; }
+  // Campaign labels (the endless flow relabels these buttons).
+  $('btn-next').textContent = 'Next Level';
+  $('btn-replay').textContent = 'Roll Again';
+  $('btn-replay').classList.remove('hidden');
+  $('btn-menu-complete').textContent = 'Main Menu';
+  $('btn-retry').textContent = 'Try Again';
   if (run.phase === 'won') {
     state.phase = 'complete';
     const rank = rankFor({ won: true, moves: run.moves, parMoves: run.level.parMoves });
@@ -848,7 +904,51 @@ function endRun() {
     focusFirst('gameover');
   }
 }
-function quitToMenu() { showMenu(); }
+// M4: endless end screens reuse the complete/gameover panels with
+// streak + run-score copy. The per-depth rank badge still shows.
+function endlessEndRun(run) {
+  const e = state.endless;
+  if (run.phase === 'won') {
+    e.streak += 1;
+    e.score += run.score;
+    bankEndlessBest();
+    state.phase = 'complete';
+    const rank = rankFor({ won: true, moves: run.moves, parMoves: run.level.parMoves });
+    $('complete-title').textContent = `Depth ${e.depth} Clear`;
+    $('complete-score').textContent = 'Run score ' + e.score;
+    $('complete-parts').textContent = `Clear ${run.scoreParts.clear} + Efficiency ${run.scoreParts.efficiency} + Time ${run.scoreParts.time} = ${run.scoreParts.total}`;
+    $('complete-detail').textContent = `${run.moves} moves (par ${run.level.parMoves}) in ${fmtTime(run.time)} · Streak ${e.streak}`;
+    $('complete-best').textContent = `Best streak ${save.endless.bestStreak} · Best score ${save.endless.bestScore}`;
+    const rankEl = $('complete-rank');
+    rankEl.textContent = rank ? 'RANK ' + rank : '';
+    rankEl.className = 'complete-best complete-rank-badge' + (rank ? ' rank-' + rank : '');
+    $('btn-next').textContent = 'Next Depth';
+    $('btn-next').classList.remove('hidden');
+    $('btn-replay').classList.add('hidden');
+    $('btn-menu-complete').textContent = 'Bank & Menu';
+    $('touch-controls').classList.add('hidden');
+    screenStack = ['complete'];
+    showOnly('complete');
+    focusFirst('complete');
+  } else {
+    bankEndlessBest();
+    state.phase = 'gameover';
+    $('gameover-title').textContent = 'Endless Run Over';
+    $('gameover-detail').textContent = run.loseReason === 'fell'
+      ? `The cube rolled off the edge at depth ${e.depth} on move ${run.moves} with ${litCount(run)}/${run.level.beacons.length} beacons lit. Streak ${e.streak} · Score ${e.score}.`
+      : `Out of moves at depth ${e.depth}: ${run.moves}/${run.level.budget} spent with ${litCount(run)}/${run.level.beacons.length} beacons lit. Par was ${run.level.parMoves}. Streak ${e.streak} · Score ${e.score}.`;
+    $('gameover-best').textContent = `Best streak ${save.endless.bestStreak} · Best score ${save.endless.bestScore}`;
+    $('btn-retry').textContent = 'New Run';
+    $('touch-controls').classList.add('hidden');
+    screenStack = ['gameover'];
+    showOnly('gameover');
+    focusFirst('gameover');
+  }
+}
+function quitToMenu() {
+  if (state.mode === 'endless') bankEndlessBest(); // quitting mid-run still banks the streak
+  showMenu();
+}
 function pauseGame() {
   if (state.phase !== 'playing') return;
   state.phase = 'paused';
@@ -871,10 +971,15 @@ function togglePause() {
 function updateHUD() {
   const run = state.run;
   if (!run) return;
-  $('hud-level').textContent = `Level ${run.level.id} — ${run.level.name}`;
+  if (state.mode === 'endless') {
+    $('hud-level').textContent = `Endless Tumble — Depth ${state.endless.depth}`;
+    $('hud-best').textContent = `Streak ${state.endless.streak} · Score ${state.endless.score}`;
+  } else {
+    $('hud-level').textContent = `Level ${run.level.id} — ${run.level.name}`;
+    const best = save.best[run.level.id];
+    $('hud-best').textContent = best ? 'Best ' + best.score : 'Best —';
+  }
   $('hud-time').textContent = fmtTime(run.time);
-  const best = save.best[run.level.id];
-  $('hud-best').textContent = best ? 'Best ' + best.score : 'Best —';
   $('hud-beacons').textContent = `Beacons ${litCount(run)}/${run.level.beacons.length}`;
   const face = COLOURS[run.orient.bottom];
   $('hud-face-name').textContent = face.name;
@@ -1002,6 +1107,7 @@ if (renderer) {
 // ---------------------------------------------------------------- buttons
 document.querySelectorAll('.btn, .icon-btn').forEach(hoverFeedback);
 $('btn-play').addEventListener('click', () => { ensureAudio(); startLevel(state.levelId); });
+$('btn-endless').addEventListener('click', () => { ensureAudio(); startEndless(); });
 $('btn-levels').addEventListener('click', () => {
   buildLevelCards($('level-grid'), (id) => startLevel(id));
   $('levels-hint').textContent = 'Clear a level to unlock the next. Ranks: S in par, A within par + 2, B cleared.';
@@ -1019,9 +1125,15 @@ $('btn-pause').addEventListener('click', pauseGame);
 $('btn-resume').addEventListener('click', resumeGame);
 $('btn-restart').addEventListener('click', () => restartLevel());
 $('btn-quit').addEventListener('click', quitToMenu);
-$('btn-next').addEventListener('click', () => startLevel(state.levelId + 1, true));
+$('btn-next').addEventListener('click', () => {
+  if (state.mode === 'endless') { state.endless.depth += 1; loadEndlessDepth(); }
+  else startLevel(state.levelId + 1, true);
+});
 $('btn-replay').addEventListener('click', () => restartLevel());
-$('btn-retry').addEventListener('click', () => restartLevel());
+$('btn-retry').addEventListener('click', () => {
+  if (state.mode === 'endless') startEndless(); // New Run: fresh seed
+  else restartLevel();
+});
 $('btn-menu-complete').addEventListener('click', quitToMenu);
 $('btn-menu-over').addEventListener('click', quitToMenu);
 $('volume-range').addEventListener('input', (e) => {
@@ -1283,6 +1395,11 @@ function info() {
   return {
     phase: state.phase,
     version: VERSION,
+    mode: state.mode,
+    depth: state.mode === 'endless' ? state.endless.depth : null,
+    streak: state.mode === 'endless' ? state.endless.streak : null,
+    runScore: state.mode === 'endless' ? state.endless.score : null,
+    endlessBest: save.endless ? { ...save.endless } : null,
     levelId: state.levelId,
     x: run ? run.x : null,
     y: run ? run.y : null,
@@ -1338,6 +1455,7 @@ window.__tumble = {
   audio: audioInfo,
   fps: fpsInfo,
   startLevel: (id) => startLevel(id, true),
+  startEndless: (seed) => startEndless(seed),
   roll: (dir) => queueRoll(dir),
   autopilot(on) { state.autopilot = !!on; state.autoTimer = 0; },
   pause: pauseGame,
@@ -1366,6 +1484,12 @@ if (!webglOK || !renderer) {
   const levelParam = Number(params.get('level'));
   if (levelParam >= 1 && levelParam <= LEVELS.length) {
     startLevel(levelParam, true);
+  } else if (params.get('endless') === '1') {
+    // Playtest path (not in the player UI): ?endless=1&seed=N&depth=N
+    const seedParam = Number(params.get('seed'));
+    startEndless(Number.isInteger(seedParam) && seedParam > 0 ? seedParam : undefined);
+    const depthParam = Number(params.get('depth'));
+    if (depthParam > 1) { state.endless.depth = depthParam; loadEndlessDepth(); }
   }
   requestAnimationFrame(frame);
 }

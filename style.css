@@ -1,4 +1,4 @@
-/* Neon Tumble v0.3.3 — neon UI: anchors + containers, reference 1920x1080 expand. */
+/* Neon Tumble v0.4.0 — neon UI: anchors + containers, reference 1920x1080 expand. */
 :root {
   --cyan: #22e6ff;
   --magenta: #ff2e9e;
@@ -116,6 +116,18 @@ h3 { color: var(--gold); margin: 14px 0 6px; letter-spacing: 0.08em; }
   box-shadow: 0 0 22px rgba(34, 230, 255, 0.35);
 }
 .btn.small { font-size: 0.9rem; padding: 8px 14px; }
+/* M4: Endless Tumble — secondary to Play (one clear primary action),
+   but visually its own mode: violet rim + glow. */
+.btn.endless {
+  border-color: var(--violet);
+  background: linear-gradient(180deg, rgba(157, 77, 255, 0.28), rgba(157, 77, 255, 0.1));
+  box-shadow: 0 0 16px rgba(157, 77, 255, 0.3);
+}
+.btn.endless:hover, .btn.endless:focus-visible {
+  background: rgba(157, 77, 255, 0.32);
+  box-shadow: 0 0 20px rgba(157, 77, 255, 0.55);
+  outline-color: var(--violet);
+}
 .btn:disabled { opacity: 0.45; cursor: default; transform: none; box-shadow: none; }
 .icon-btn {
   font: inherit; font-size: 0.9rem; font-weight: 600;

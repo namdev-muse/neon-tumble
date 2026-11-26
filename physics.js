@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.3 — pure simulation core (no DOM, no Three.js).
+// Neon Tumble v0.4.0 — pure simulation core (no DOM, no Three.js).
 //
 // A 3D neon cube-rolling puzzle: a cube with six distinctly coloured
 // faces rolls one cell at a time across floating grid platforms. Each
@@ -23,7 +23,7 @@
 // (BFS over position + orientation + lit mask) gives identical results
 // for identical inputs.
 
-export const VERSION = '0.3.3';
+export const VERSION = '0.4.0';
 
 export const DIRS = {
   E: { x: 1, y: 0 },
@@ -351,6 +351,96 @@ export function solve(level) {
   return null;
 }
 
+// ---------------------------------------------------------------- endless
+// M4: Endless Tumble — seeded scaling depths. Each depth is a fresh
+// generated platform (bigger, more beacons, more walls, less budget
+// slack as you descend), verified solvable by the same BFS solver
+// before it is handed to the player. Generation is deterministic
+// from (seed, depth): the same pair always builds the same depth, so
+// a restart replays the identical puzzle and the bot harness can
+// gate every depth. The generator only ever returns a level the
+// solver cleared inside the depth's par band — an unsolvable or
+// trivial depth is rejected and the next candidate is drawn.
+export function endlessBeaconCount(depth) {
+  return Math.min(6, 1 + Math.floor((depth - 1) / 2));
+}
+export function endlessSlackFrac(depth) {
+  // Budget slack above par shrinks as you descend: ~47% at depth 1
+  // (teaching), ~20% at depth 10, floored at 12% — the deeper you
+  // go, the fewer wasted tumbles you can afford.
+  return Math.max(0.12, 0.5 - depth * 0.03);
+}
+export function generateEndlessLevel(seed, depth) {
+  const cols = Math.min(15, 6 + depth); // depth 1: 7 wide, depth 9+: 15
+  const rows = Math.min(9, 3 + Math.ceil(depth / 2)); // depth 1: 4, depth 11+: 9
+  const beaconTotal = endlessBeaconCount(depth);
+  const wallTotal = Math.min(12, Math.floor(depth * 1.3));
+  const minPar = 5 + depth * 2;
+  const maxPar = 16 + depth * 3;
+  const rng = mulberry32((Math.imul(seed + 1, 2654435761) + Math.imul(depth, 40503)) >>> 0);
+  const pick = (n) => Math.floor(rng() * n);
+  // Two phases: strict par band first, then any solvable depth, so
+  // generation can never hang or hand back an impossible puzzle.
+  for (let phase = 0; phase < 2; phase++) {
+    for (let attempt = 0; attempt < 300; attempt++) {
+      const grid = Array.from({ length: rows }, () => Array(cols).fill('.'));
+      const start = { x: pick(2), y: pick(rows) };
+      let exit = { x: cols - 1 - pick(2), y: pick(rows) };
+      if (Math.abs(exit.x - start.x) + Math.abs(exit.y - start.y) < Math.floor(cols * 0.7)) continue;
+      const taken = new Set([cellKey(start.x, start.y), cellKey(exit.x, exit.y)]);
+      const colours = [0, 1, 2, 3, 4, 5];
+      for (let i = colours.length - 1; i > 0; i--) {
+        const j = pick(i + 1);
+        [colours[i], colours[j]] = [colours[j], colours[i]];
+      }
+      const beacons = [];
+      let guard = 0;
+      while (beacons.length < beaconTotal && guard++ < 200) {
+        const bx = pick(cols);
+        const by = pick(rows);
+        if (taken.has(cellKey(bx, by))) continue;
+        if (Math.abs(bx - start.x) + Math.abs(by - start.y) < 2) continue;
+        if (Math.abs(bx - exit.x) + Math.abs(by - exit.y) < 2) continue;
+        taken.add(cellKey(bx, by));
+        beacons.push({ x: bx, y: by, colour: colours[beacons.length] });
+      }
+      if (beacons.length < beaconTotal) continue;
+      let wallsPlaced = 0;
+      guard = 0;
+      while (wallsPlaced < wallTotal && guard++ < 200) {
+        const wx = pick(cols);
+        const wy = pick(rows);
+        if (taken.has(cellKey(wx, wy))) continue;
+        taken.add(cellKey(wx, wy));
+        grid[wy][wx] = '#';
+        wallsPlaced++;
+      }
+      grid[start.y][start.x] = 'S';
+      grid[exit.y][exit.x] = 'X';
+      for (const b of beacons) grid[b.y][b.x] = String(b.colour);
+      const level = parseLevel({
+        id: 'E' + depth,
+        name: 'Depth ' + depth,
+        hint: `Endless depth ${depth} — light every beacon, then the exit. The deeper you go, the less slack you get.`,
+        accent: COLOURS[(depth - 1) % 6].hex,
+        grid: grid.map((r) => r.join('')),
+        budget: 0, parMoves: 0, parTime: 0,
+      });
+      const sol = solve(level);
+      if (!sol) continue;
+      if (phase === 0 && (sol.moves < minPar || sol.moves > maxPar)) continue;
+      level.parMoves = sol.moves;
+      level.budget = sol.moves + Math.max(2, Math.round(sol.moves * endlessSlackFrac(depth)));
+      level.parTime = sol.moves * 5;
+      level.seed = seed;
+      level.depth = depth;
+      level.endless = true;
+      return level;
+    }
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------- run
 export function createRun(level) {
   return {
@@ -476,6 +566,7 @@ export function defaultSave() {
     version: 1,
     best: {}, // levelId -> { score, moves, time, won, rank? }
     unlocked: 1, // highest level id unlocked
+    endless: { bestStreak: 0, bestScore: 0 }, // M4: Endless Tumble bests
     settings: {
       muted: false, volume: 60, shake: 100, music: true, sfx: true,
       flash: true, textSize: 'normal', contrast: false,
@@ -495,10 +586,15 @@ export function parseSave(raw) {
       if (kept.rank !== undefined && !['S', 'A', 'B'].includes(kept.rank)) delete kept.rank;
       best[id] = kept;
     }
+    const endlessRaw = (s.endless && typeof s.endless === 'object') ? s.endless : {};
     return {
       version: 1,
       best,
       unlocked: Number.isInteger(s.unlocked) ? clamp(s.unlocked, 1, LEVELS.length) : 1,
+      endless: {
+        bestStreak: Number.isInteger(endlessRaw.bestStreak) && endlessRaw.bestStreak > 0 ? endlessRaw.bestStreak : 0,
+        bestScore: Number.isInteger(endlessRaw.bestScore) && endlessRaw.bestScore > 0 ? endlessRaw.bestScore : 0,
+      },
       settings: { ...d.settings, ...(s.settings || {}) },
     };
   } catch {
@@ -521,6 +617,14 @@ export function recordBest(save, levelId, result) {
 }
 export function isLevelUnlocked(save, levelId) {
   return levelId <= save.unlocked;
+}
+// M4: bank an Endless Tumble run's streak + score (max-only, so a
+// worse run never overwrites a better one; safe to call on quit).
+export function recordEndlessBest(save, streak, score) {
+  if (!save.endless) save.endless = { bestStreak: 0, bestScore: 0 };
+  if (streak > save.endless.bestStreak) save.endless.bestStreak = streak;
+  if (score > save.endless.bestScore) save.endless.bestScore = score;
+  return save;
 }
 
 // ---------------------------------------------------------------- feedback
