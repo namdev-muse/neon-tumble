@@ -1,10 +1,10 @@
-// Neon Tumble v0.1.0 — headless browser render check.
+// Neon Tumble v0.2.0 — headless browser render check.
 // Serves the game dir over local HTTP, loads it in a headless browser,
 // and asserts the M1 core, by hook and by eye:
 //   - the menu renders over a LIVE 3D demo (the solver rolls the cube
 //     on level 1 behind the menu), with no version/engine text
 //     anywhere the player can see, one clear primary Play action,
-//     and 3 level cards
+//     and 12 level cards
 //   - Play starts level 1 with the HUD; rolling tumbles the cube ON
 //     SCREEN and changes the down face (screen-space asserted — the
 //     Drift M2 lesson); the HUD moves counter follows
@@ -132,9 +132,9 @@ try {
     const b = document.getElementById('btn-play');
     return b && !b.classList.contains('hidden') && b.textContent.includes('Play');
   }));
-  check('no version text on the player-facing menu', !/v0\.1\.0|0\.1\.0/.test(menuText), menuText.slice(0, 200));
+  check('no version text on the player-facing menu', !/v0\.2\.0|0\.2\.0/.test(menuText), menuText.slice(0, 200));
   check('no engine text on the player-facing menu', !/three\.js|canvas 2d|webgl/i.test(menuText));
-  check('menu lists 3 levels', await page.evaluate(() => window.__tumble.levels.length === 3));
+  check('menu lists 12 levels', await page.evaluate(() => window.__tumble.levels.length === 12));
   const demo1 = await page.evaluate(() => window.__tumble.info());
   check('live demo cube exists behind the menu', demo1.phase === 'menu' && demo1.x !== null, JSON.stringify(demo1));
   await page.waitForTimeout(4000);
@@ -148,8 +148,8 @@ try {
   // --- level select ---------------------------------------------------------
   await page.click('#btn-levels');
   await page.waitForFunction(() => !document.getElementById('levels').classList.contains('hidden'), null, { timeout: 5000 });
-  check('level select shows 3 level cards', await page.evaluate(() => document.querySelectorAll('#level-grid .track-card').length === 3));
-  check('level 1 unlocked, levels 2-3 locked on a fresh save', await page.evaluate(() => {
+  check('level select shows 12 level cards', await page.evaluate(() => document.querySelectorAll('#level-grid .track-card').length === 12));
+  check('level 1 unlocked, levels 2-12 locked on a fresh save', await page.evaluate(() => {
     const cards = [...document.querySelectorAll('#level-grid .track-card')];
     return !cards[0].disabled && cards.slice(1).every((c) => c.disabled);
   }));
@@ -260,12 +260,31 @@ try {
   await page3.evaluate(() => window.__tumble.autopilot(true));
   await page3.waitForFunction(() => window.__tumble.state.phase === 'complete', null, { timeout: 120000 });
   check('autopilot clears level 3 (all three beacons lit)', await page3.evaluate(() => window.__tumble.state.run.phase === 'won'));
-  check('last-level complete screen hides Next, titles All Levels Clear', await page3.evaluate(() =>
-    document.getElementById('btn-next').classList.contains('hidden') &&
-    document.getElementById('complete-title').textContent === 'All Levels Clear'));
+  check('mid-game complete screen shows Next, titles Level Cleared', await page3.evaluate(() =>
+    !document.getElementById('btn-next').classList.contains('hidden') &&
+    document.getElementById('complete-title').textContent === 'Level Cleared'));
   await page3.screenshot({ timeout: 120000, path: path.join(SHOTS_DIR, 'level3-1280x720.png') });
   console.log('render-check: level 3 shot captured');
   await context3.close();
+
+  // --- ?level=12 finale path (M2: largest platform, six beacons) -------------
+  const context12 = await browser.newContext({ viewport: { width: 1280, height: 720 }, timezoneId: 'Asia/Bangkok' });
+  const page12 = await newPage(context12, 'level12');
+  await page12.goto(`http://127.0.0.1:${port}/?level=12`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page12.waitForFunction(() => window.__tumble, null, { timeout: 30000 });
+  await page12.waitForFunction(() => window.__tumble.state.phase === 'playing', null, { timeout: 5000 });
+  check('?level=12 jumps straight into level 12', await page12.evaluate(() => window.__tumble.state.levelId === 12));
+  const c12 = await page12.evaluate(() => window.__tumble.info());
+  check('level 12 has 6 beacons', c12.total === 6, JSON.stringify(c12));
+  await page12.evaluate(() => window.__tumble.autopilot(true));
+  await page12.waitForFunction(() => window.__tumble.state.phase === 'complete', null, { timeout: 180000 });
+  check('autopilot clears level 12 (all six beacons lit)', await page12.evaluate(() => window.__tumble.state.run.phase === 'won'));
+  check('last-level complete screen hides Next, titles All Levels Clear', await page12.evaluate(() =>
+    document.getElementById('btn-next').classList.contains('hidden') &&
+    document.getElementById('complete-title').textContent === 'All Levels Clear'));
+  await page12.screenshot({ timeout: 120000, path: path.join(SHOTS_DIR, 'level12-1280x720.png') });
+  console.log('render-check: level 12 shot captured');
+  await context12.close();
 
   // --- toggles + FPS guard -------------------------------------------------------
   const contextG = await browser.newContext({ viewport: { width: 1280, height: 720 }, timezoneId: 'Asia/Bangkok' });

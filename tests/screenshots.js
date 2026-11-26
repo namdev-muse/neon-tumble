@@ -1,4 +1,4 @@
-// Neon Tumble v0.1.0 — size sweep screenshots.
+// Neon Tumble v0.2.0 — size sweep screenshots.
 // Serves the game dir over local HTTP and captures the menu + gameplay
 // at 1280x720, 2560x1080 and 1080x2340 (portrait), plus a level-3
 // framing shot. Inspect every shot by eye: no clipped or overlapping
@@ -124,6 +124,22 @@ try {
     console.log('screenshots: level3-1280x720.png saved');
     await context.close();
   }
+  // Level-12 framing shots (Void Crown — the largest platform, 15x9,
+  // six beacons): landscape + portrait, the M2 camera-framing check.
+  for (const size of [{ name: '1280x720', width: 1280, height: 720 }, { name: '1080x2340', width: 1080, height: 2340 }]) {
+    const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: 0.5, timezoneId: 'Asia/Bangkok', hasTouch: true });
+    const page = await context.newPage();
+    page.on('console', (msg) => { if (msg.type() === 'error') errors.push('level12 console: ' + msg.text()); });
+    page.on('pageerror', (err) => errors.push('level12 pageerror: ' + String(err)));
+    await page.route(THREE_URL, (route) => route.fulfill({ path: cached }));
+    await page.goto(`http://127.0.0.1:${port}/?level=12`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForFunction(() => window.__tumble && window.__tumble.state.phase === 'playing', null, { timeout: 30000 });
+    await page.evaluate(() => window.__tumble.autopilot(true));
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: path.join(SHOTS_DIR, `level12-${size.name}.png`), timeout: 120000 });
+    console.log(`screenshots: level12-${size.name}.png saved`);
+    await context.close();
+  }
   fs.mkdirSync(DOCS_DIR, { recursive: true });
   for (const [src, dst] of [
     ['menu-1280x720.png', 'menu-1280x720.png'],
@@ -137,7 +153,7 @@ try {
     errors.forEach((e) => console.error('  ' + e));
     process.exitCode = 1;
   } else {
-    console.log(`screenshots: done — 7 shots in ${SHOTS_DIR} (menu/gameplay copied to docs/screenshots/), zero console/page errors. INSPECT BY EYE.`);
+    console.log(`screenshots: done — 9 shots in ${SHOTS_DIR} (menu/gameplay copied to docs/screenshots/), zero console/page errors. INSPECT BY EYE.`);
   }
 } catch (err) {
   console.error('screenshots: FAIL —', err.message);

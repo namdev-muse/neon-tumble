@@ -1,4 +1,4 @@
-// Neon Tumble v0.1.0 — smoke tests for the pure sim (physics.js).
+// Neon Tumble v0.2.0 — smoke tests for the pure sim (physics.js).
 // Run: node tests/smoke.js
 import {
   VERSION, LEVELS, levelById, START_ORIENT, rollOrientation, orientKey,
@@ -16,7 +16,7 @@ function check(name, cond, extra) {
 }
 
 console.log('smoke: Neon Tumble ' + VERSION);
-check('VERSION is 0.1.0', VERSION === '0.1.0');
+check('VERSION is 0.2.0', VERSION === '0.2.0');
 check('six colours defined', COLOURS.length === 6);
 
 // --- orientation math -------------------------------------------------------
@@ -49,7 +49,7 @@ check('six colours defined', COLOURS.length === 6);
 }
 
 // --- level data sanity --------------------------------------------------------
-check('3 levels defined', LEVELS.length === 3);
+check('12 levels defined', LEVELS.length === 12);
 check('solver pars strictly increasing (difficulty curve)',
   LEVELS.every((l, i) => i === 0 || l.parMoves > LEVELS[i - 1].parMoves),
   LEVELS.map((l) => l.parMoves).join(','));
@@ -80,6 +80,8 @@ for (const l of LEVELS) {
 check('level 1 teaches with one beacon', LEVELS[0].beacons.length === 1);
 check('level 2 has two beacons', LEVELS[1].beacons.length === 2);
 check('level 3 has three beacons', LEVELS[2].beacons.length === 3);
+check('level 12 (Void Crown) uses all six beacon colours',
+  new Set(LEVELS[11].beacons.map((b) => b.colour)).size === 6);
 check('levelById finds level 2', levelById(2) && levelById(2).id === 2);
 check('levelById returns null for a bad id', levelById(99) === null);
 
