@@ -1,11 +1,11 @@
-/* Neon Tumble v0.1.0 — neon UI: anchors + containers, reference 1920x1080 expand. */
+/* Neon Tumble v0.2.0 — neon UI: anchors + containers, reference 1920x1080 expand. */
 :root {
   --cyan: #22e6ff;
   --magenta: #ff3df0;
   --violet: #b26bff;
   --gold: #ffd23d;
   --lime: #7dff4d;
-  --orange: #ff8c3d;
+  --orange: #ff6b1a;
   --ink: #050514;
   --panel: rgba(10, 10, 32, 0.82);
   --panel-border: rgba(34, 230, 255, 0.45);
@@ -129,6 +129,15 @@ h3 { color: var(--gold); margin: 14px 0 6px; letter-spacing: 0.08em; }
 .track-select {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;
 }
+/* 12 level cards (M2) overflow the menu panel: the menu strip scrolls
+   inside its own box so the panel always fits the screen. Compact
+   cards in the strip keep two full rows + the hint line on a 720p
+   screen (eye-check catch: hint was half-cut at the panel edge). */
+#level-select { max-height: 168px; overflow-y: auto; padding-right: 4px; }
+#level-select .track-card { padding: 6px 8px; }
+#level-select .tc-name { font-size: 0.95rem; }
+#level-select .tc-meta, #level-select .tc-best { font-size: 0.8rem; }
+.panel-menu { padding: 22px 28px; }
 .track-card {
   text-align: left; font: inherit; color: var(--text);
   background: rgba(34, 230, 255, 0.07); border: 1px solid var(--panel-border);

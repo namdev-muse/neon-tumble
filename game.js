@@ -1,4 +1,4 @@
-// Neon Tumble v0.1.0 — Three.js renderer + menus + game feel.
+// Neon Tumble v0.2.0 — Three.js renderer + menus + game feel.
 // The simulation lives in physics.js (pure, no DOM); this file owns
 // the 3D scene, the screen stack, input, Web Audio SFX/music and the
 // feel tiers. Grid (x east, y south) maps to world (x east, z south);
@@ -916,6 +916,10 @@ function frameCamera(dt, run, orbiting) {
   const span = Math.max(level.cols, level.rows);
   const aspect = window.innerWidth / window.innerHeight;
   const dist = span * (aspect < 1 ? 2.3 : 1.0) + (aspect < 1 ? 3.2 : 2.4);
+  // Fog must scale with the camera distance: at portrait distance for
+  // a 15-wide platform (M2) the fixed 18-46 fog swallowed the whole
+  // platform into the background (eye-check catch).
+  if (scene && scene.fog) { scene.fog.near = dist * 0.9; scene.fog.far = dist * 2.4; }
   let tx = 0; let tz = 0;
   if (run) {
     const w = cellToWorld(level, run.x, run.y);

@@ -1,4 +1,4 @@
-// Neon Tumble v0.1.0 — pure simulation core (no DOM, no Three.js).
+// Neon Tumble v0.2.0 — pure simulation core (no DOM, no Three.js).
 //
 // A 3D neon cube-rolling puzzle: a cube with six distinctly coloured
 // faces rolls one cell at a time across floating grid platforms. Each
@@ -23,7 +23,7 @@
 // (BFS over position + orientation + lit mask) gives identical results
 // for identical inputs.
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
 export const DIRS = {
   E: { x: 1, y: 0 },
@@ -39,7 +39,7 @@ export const COLOURS = [
   { name: 'Gold', hex: '#ffd23d' },
   { name: 'Violet', hex: '#b26bff' },
   { name: 'Lime', hex: '#7dff4d' },
-  { name: 'Orange', hex: '#ff8c3d' },
+  { name: 'Orange', hex: '#ff6b1a' },
 ];
 
 export const START_ORIENT = { top: 0, bottom: 1, north: 2, south: 3, east: 4, west: 5 };
@@ -140,6 +140,164 @@ export const LEVELS = [
       '..##....',
     ],
     budget: 22, parMoves: 18, parTime: 100,
+  }),
+  // M2 (v0.2.0): nine more hand-crafted levels. Solver pars form a
+  // strictly increasing curve across all 12 levels: 6, 14, 18, 21,
+  // 23, 26, 27, 28, 31, 34, 35, 37 (verified by tests/bot.js).
+  // Platforms stay at least two cells deep everywhere so 2x2 loops
+  // can always re-orient the cube onto any face — a 1-wide corridor
+  // would lock the north/south faces away from the bottom forever.
+  parseLevel({
+    id: 4,
+    name: 'The Loop',
+    hint: 'Two beacons on opposite sides of the wall blocks. Loop around them — the loop itself turns the cube.',
+    accent: '#b26bff',
+    grid: [
+      '...........',
+      '.S..##.....',
+      '....##..4..',
+      '...........',
+      '..##.......',
+      '.2....##..X',
+      '...........',
+    ],
+    budget: 26, parMoves: 21, parTime: 125,
+  }),
+  parseLevel({
+    id: 5,
+    name: 'Crossroads',
+    hint: 'Four beacons, one crossroads. Choose an order — every detour is also a tumble.',
+    accent: '#7dff4d',
+    grid: [
+      '.....X......',
+      '.....4......',
+      '............',
+      '.S...##...1.',
+      '............',
+      '.....3......',
+      '.....5......',
+      '............',
+    ],
+    budget: 28, parMoves: 23, parTime: 135,
+  }),
+  parseLevel({
+    id: 6,
+    name: 'Twin Gates',
+    hint: 'Three beacons behind twin wall gates. Thread the gaps without wasting the face you need.',
+    accent: '#ff6b1a',
+    grid: [
+      '..............',
+      '.S....##....0.',
+      '...##.........',
+      '.........##...',
+      '.5....##......',
+      '....1........X',
+      '..............',
+    ],
+    budget: 31, parMoves: 26, parTime: 150,
+  }),
+  parseLevel({
+    id: 7,
+    name: 'Switchback',
+    hint: 'Beacons at both ends of the switchback. The long way round is the orientation you need.',
+    accent: '#22e6ff',
+    grid: [
+      '.............',
+      '.S.......0...',
+      '....##.......',
+      '.............',
+      '.....##....3.',
+      '............X',
+      '.2...........',
+    ],
+    budget: 32, parMoves: 27, parTime: 155,
+  }),
+  parseLevel({
+    id: 8,
+    name: 'Hourglass',
+    hint: 'The hourglass pinches in the middle. Pass through it twice — once for each face.',
+    accent: '#ff3df0',
+    grid: [
+      '............',
+      '.S....0.....',
+      '....##......',
+      '.....##.....',
+      '....##...3..',
+      '............',
+      '....5.......',
+      '...........X',
+    ],
+    budget: 33, parMoves: 28, parTime: 160,
+  }),
+  parseLevel({
+    id: 9,
+    name: 'The Gauntlet',
+    hint: 'All six faces, all six beacons. The gauntlet runs the full length of the platform.',
+    accent: '#ffd23d',
+    grid: [
+      'S............X',
+      '....##........',
+      '.0....##...5..',
+      '....##........',
+      '......##......',
+      '.3....##...2..',
+      '....##........',
+      '..............',
+      '....1....4....',
+    ],
+    budget: 37, parMoves: 31, parTime: 175,
+  }),
+  parseLevel({
+    id: 10,
+    name: 'The Maze',
+    hint: 'Walls everywhere and only three beacons — the maze is the puzzle. Count your faces at every turn.',
+    accent: '#b26bff',
+    grid: [
+      'S....#......',
+      '.....#..4...',
+      '.##..#......',
+      '.....##.##..',
+      '..2.........',
+      '.##.##..#...',
+      '.........#X.',
+      '....0.......',
+    ],
+    budget: 40, parMoves: 34, parTime: 190,
+  }),
+  parseLevel({
+    id: 11,
+    name: 'Four Corners',
+    hint: 'You start in the middle. Four beacons, four corners — pick a route and commit.',
+    accent: '#7dff4d',
+    grid: [
+      '0..........5',
+      '............',
+      '..##....##..',
+      '.....S......',
+      '..##....##..',
+      '............',
+      '3..........X',
+      '.....1......',
+    ],
+    budget: 41, parMoves: 35, parTime: 195,
+  }),
+  parseLevel({
+    id: 12,
+    name: 'Void Crown',
+    hint: 'The crown: every colour, every corner, one long tumble home. Spend nothing twice.',
+    accent: '#ff6b1a',
+    grid: [
+      'S..............',
+      '.....##........',
+      '.0.....##...5..',
+      '.....##........',
+      '.......##......',
+      '.3.....##...2..',
+      '.....##........',
+      '..............X',
+      '....1....4.....',
+    ],
+    budget: 43, parMoves: 37, parTime: 205,
   }),
 ];
 

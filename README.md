@@ -4,8 +4,7 @@ A 3D neon cube-rolling puzzle. Roll a six-coloured cube across floating
 platforms, land the matching face on every beacon to light it, then reach
 the exit portal before your moves run out.
 
-**Play it:** https://namdev-muse.github.io/neon-tumble/ *(goes live with the
-first milestone push — v0.1.0 is currently a local M1 build)*
+**Play it:** https://namdev-muse.github.io/neon-tumble/
 
 ![Menu](docs/screenshots/menu-1280x720.png)
 ![Gameplay](docs/screenshots/gameplay-1280x720.png)
@@ -32,16 +31,28 @@ first milestone push — v0.1.0 is currently a local M1 build)*
 There is no auto-roll, no next-move hint and no solution preview — the
 cube's visible faces show its current state only.
 
-## Levels (v0.1.0)
+## Levels (v0.2.0)
 
 | # | Level | Beacons | Par | Budget |
 |---|-------|---------|-----|--------|
 | 1 | First Tumble | 1 (Magenta) | 6 | 11 |
 | 2 | Crosscurrent | 2 (Lime, Gold) | 14 | 18 |
 | 3 | The Vault | 3 (Orange, Violet, Magenta) | 18 | 22 |
+| 4 | The Loop | 2 (Lime, Gold) | 21 | 26 |
+| 5 | Crossroads | 4 (Lime, Magenta, Violet, Orange) | 23 | 28 |
+| 6 | Twin Gates | 3 (Cyan, Orange, Magenta) | 26 | 31 |
+| 7 | Switchback | 3 (Cyan, Violet, Gold) | 27 | 32 |
+| 8 | Hourglass | 3 (Cyan, Violet, Orange) | 28 | 33 |
+| 9 | The Gauntlet | 6 (all six colours) | 31 | 37 |
+| 10 | The Maze | 3 (Lime, Gold, Cyan) | 34 | 40 |
+| 11 | Four Corners | 4 (Cyan, Orange, Violet, Magenta) | 35 | 41 |
+| 12 | Void Crown | 6 (all six colours) | 37 | 43 |
 
 Pars are the BFS solver's minimum move counts (position + orientation +
-lit beacons), verified by the bot harness. More levels land in M2.
+lit beacons), verified by the bot harness. They form a strictly
+increasing difficulty curve — 6, 14, 18, 21, 23, 26, 27, 28, 31, 34,
+35, 37 — with no cliff: each level asks for a few more deliberate
+tumbles than the last.
 
 ## Controls
 
