@@ -1,5 +1,19 @@
 # Neon Tumble — devlog
 
+## v0.3.2 — M3 second playtest fixes (2026-11-26)
+
+The re-playtest was close — rank line, R-on-complete, low-moves
+urgency and beams all passed — but still NO-GO: pop text rendered
+dim (gold on gold, fading from the first frame), the wall bump was
+a translation-only nudge no still could catch, the landing squash
+was too brief to register, and the cell marker's pulse was
+undetectable. Fixes: pops are white on near-opaque pills at full
+opacity for 60% of a longer life; the wall bump is now a real
+~18° lean into the wall over 0.34s (quaternion tilt, restored
+exactly); squash deepened to a 35% dip over 0.4s; the cell frame
+is thicker, pulses in opacity and scale, and hides while the cube
+falls; beams are shorter and wider. Re-playtested after this push.
+
 ## v0.3.1 — M3 playtest fixes (2026-11-26)
 
 The first live FUN playtest of the feel build came back NO-GO: the
