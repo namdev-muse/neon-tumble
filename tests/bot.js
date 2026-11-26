@@ -1,4 +1,4 @@
-// Neon Tumble v0.4.0 — bot harness (anti-slop gates).
+// Neon Tumble v1.0.0 — bot harness (anti-slop gates).
 // Run: node tests/bot.js
 //
 // Gates:
