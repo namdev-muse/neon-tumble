@@ -1,5 +1,22 @@
 # Neon Tumble — devlog
 
+## v0.3.3 — M3 third playtest fixes (2026-11-26)
+
+The third playtest passed pop contrast, wall lean (weak), cell
+marker pulse, rank line, R-on-complete, low-moves urgency and
+beam dimming — but still NO-GO on two items. Landing squash: a
+local probe confirmed the squash fires for its full 0.4s window
+(hook-sampled), but at 35% dip it was still easy to miss in
+stills; it is now a 45% dip over 0.55s plus an expanding landing
+ring flash in the down-face colour, so every landing reads in a
+single frame. Beam lean: diagnosed as correct perspective — with
+a camera pitched down ~49°, the vertical vanishing point sits
+above the screen, so world-vertical beams near the frame edges
+project tilted 12–20° and read as bent. Beams now align to the
+camera's up vector, making them screen-vertical from every
+angle, anchored at the pad. Wall lean strengthened to ~24° over
+0.4s for margin. Re-playtested after this push.
+
 ## v0.3.2 — M3 second playtest fixes (2026-11-26)
 
 The re-playtest was close — rank line, R-on-complete, low-moves
