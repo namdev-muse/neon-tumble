@@ -1,5 +1,25 @@
 # Neon Tumble — devlog
 
+## v0.3.0 — M3 feel & juice (2026-11-26)
+
+Every event now fires its full feedback bundle. Before this milestone
+the roll was a bare SFX call (its trauma/particle tier never fired),
+wall and no-moves shared one generic denied buzz, and a full input
+queue dropped rolls with a buzz but no words. Now: the roll goes
+through the tier system (thock + shake + take-off sparks, landing
+dust + squash on arrival); a wall thunk comes with a visible cube
+bump; a wrong-face landing sparks in the beacon's own colour and
+pops "Needs <colour> down" at the beacon; a locked exit clangs and
+pops its lit count; queue-full says "Too fast — let the cube land
+first". The HUD MOVES meter warns in stages (gold under 30% of
+budget, pulsing danger for the last 2 moves) so running dry is never
+a surprise. The generative music gains a soft pad harmony once two
+beacons burn, on top of the arp lift. Two readability carry-overs
+from earlier playtests are fixed: the cube's top face no longer
+blows out to white (softer emissive + key light), and a glowing tile
+marker under the cube makes its grid cell unambiguous in
+perspective.
+
 ## v0.2.1 — M2 playtest fixes (2026-11-26)
 
 The first live FUN playtest of the 12-level build came back NO-GO:
