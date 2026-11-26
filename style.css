@@ -1,4 +1,4 @@
-/* Neon Tumble v0.2.1 — neon UI: anchors + containers, reference 1920x1080 expand. */
+/* Neon Tumble v0.3.0 — neon UI: anchors + containers, reference 1920x1080 expand. */
 :root {
   --cyan: #22e6ff;
   --magenta: #ff2e9e;
@@ -194,7 +194,11 @@ h3 { color: var(--gold); margin: 14px 0 6px; letter-spacing: 0.08em; }
 .hud-moves-label { font-size: 0.75rem; letter-spacing: 0.12em; color: var(--muted); }
 .hud-moves-track { width: 110px; height: 8px; border: 1px solid var(--panel-border); border-radius: 4px; overflow: hidden; background: rgba(34, 230, 255, 0.08); }
 #hud-moves-fill { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--cyan), var(--gold)); transition: width 0.12s ease; }
-#hud-moves-fill.low { background: linear-gradient(90deg, #ff5470, #ff8a3d); }
+/* M3: staged budget warning — gold under 30%, pulsing danger for
+   the last 2 moves, so the budget reads as a decision, not a trap. */
+#hud-moves-fill.warn { background: linear-gradient(90deg, var(--gold), #ff8a3d); }
+#hud-moves-fill.low { background: linear-gradient(90deg, #ff5470, #ff8a3d); animation: moves-low-pulse 0.7s ease-in-out infinite alternate; }
+@keyframes moves-low-pulse { from { filter: brightness(0.75); } to { filter: brightness(1.35); } }
 #hud-moves-left { font-size: 0.85rem; color: var(--gold); min-width: 3.5em; }
 .hud-toast {
   position: fixed; z-index: 6; left: 50%; top: 18%;

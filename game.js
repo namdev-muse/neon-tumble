@@ -1,4 +1,4 @@
-// Neon Tumble v0.2.1 — Three.js renderer + menus + game feel.
+// Neon Tumble v0.3.0 — Three.js renderer + menus + game feel.
 // The simulation lives in physics.js (pure, no DOM); this file owns
 // the 3D scene, the screen stack, input, Web Audio SFX/music and the
 // feel tiers. Grid (x east, y south) maps to world (x east, z south);
@@ -53,12 +53,15 @@ const state = {
   endTimer: null,
   lastDenied: null,
   lastEvent: null,
-  fxCounts: { roll: 0, beacon: 0, wrongface: 0, wall: 0, exitlocked: 0, fell: 0, budget: 0, won: 0, denied: 0 },
+  fxCounts: { roll: 0, beacon: 0, wrongface: 0, wall: 0, exitlocked: 0, fell: 0, budget: 0, won: 0, denied: 0, queuefull: 0 },
   muted: !!settings.muted,
 };
 let rollQueue = [];
 let rollAnim = null; // { t, dur, fromPos, toPos, fromQuat, toQuat, outcome, dir }
 let fallAnim = null; // { t, dur, dir }
+let bumpAnim = null; // M3: wall bump — { t, dur, dir } nudge toward the wall and back
+let landSquashT = 0; // M3: landing squash timer (seconds remaining)
+let cubeRing = null; // M3: tile highlight ring under the cube
 let dprCap = 2;
 let particleScale = 1;
 let fpsEma = 60;
@@ -101,6 +104,12 @@ function playSfx(name) {
   switch (name) {
     case 'roll': tone(140, 0.09, 'sine', 0.25, 70); tone(320, 0.05, 'triangle', 0.08); break;
     case 'beacon': tone(660, 0.18, 'sine', 0.22); tone(880, 0.22, 'sine', 0.2, null, 0.07); tone(1320, 0.3, 'sine', 0.16, null, 0.14); break;
+    // M3: one voice per denied event — a wall thunks low, a wrong
+    // face buzzes down, a locked exit clangs. The player learns the
+    // mistake by ear before the toast finishes reading.
+    case 'wall': tone(90, 0.1, 'sine', 0.3, 55); tone(220, 0.05, 'square', 0.06); break;
+    case 'wrongface': tone(300, 0.16, 'sawtooth', 0.1, 180); tone(210, 0.14, 'sawtooth', 0.08, 140, 0.05); break;
+    case 'exitlocked': tone(520, 0.12, 'triangle', 0.16, 390); tone(780, 0.1, 'sine', 0.08, null, 0.03); break;
     case 'denied': tone(160, 0.14, 'square', 0.12, 110); break;
     case 'fall': tone(520, 0.55, 'sine', 0.22, 60); break;
     case 'fail': tone(220, 0.3, 'triangle', 0.2, 110); tone(165, 0.4, 'triangle', 0.18, 82, 0.12); break;
@@ -129,8 +138,20 @@ function scheduleMusic() {
       g.gain.setValueAtTime(0.10, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + beat * 1.8);
       osc.connect(g); g.connect(masterGain); osc.start(t0); osc.stop(t0 + beat * 2);
     }
+    // M3: a soft pad chord fades in once two beacons burn (lift >= 3
+    // means 2+ lit — lift is 1 + lit count), so progress is audible
+    // as harmony, not only as a denser arp.
+    if (lift >= 3 && step % 8 === 0) {
+      for (const semis of [0, 3, 7]) {
+        const t0 = nextNoteTime;
+        const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
+        osc.type = 'sine'; osc.frequency.value = root * 2 * Math.pow(2, semis / 12);
+        g.gain.setValueAtTime(0.028, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + beat * 3.6);
+        osc.connect(g); g.connect(masterGain); osc.start(t0); osc.stop(t0 + beat * 4);
+      }
+    }
     // Arp density grows with beacons lit (the lift).
-    const density = [0, 4, 8, 12][Math.min(3, step)] !== undefined && (step % Math.max(1, 5 - lift) === 0);
+    const density = step % Math.max(1, 5 - lift) === 0;
     if (density) {
       const semis = SCALE[(musicStep * 3 + lift) % SCALE.length] + (lift >= 3 ? 12 : 0);
       const t0 = nextNoteTime;
@@ -157,6 +178,7 @@ function audioInfo() {
     sfxOn,
     muted: state.muted,
     lift: musicLift(),
+    step: musicStep,
   };
 }
 
@@ -186,7 +208,7 @@ try {
   scene.fog = new THREE.Fog(0x050514, 18, 46);
   camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 120);
   scene.add(new THREE.HemisphereLight(0x8fb8ff, 0x1a1030, 0.55));
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
   dirLight.position.set(6, 12, 4);
   scene.add(dirLight);
   const rim = new THREE.PointLight(0x9d4dff, 30, 40);
@@ -416,12 +438,14 @@ function buildLevelScene(level) {
     levelGroup.add(disc);
     exitVisual = { torus, disc, x: w.x, z: w.z };
   }
-  // Cube
+  // Cube. M3: emissive 0.8 + a hot key light blew the top face out
+  // to white in every screenshot since M1 (the face you read most).
+  // Softer emissive + rougher surface keeps all six colours distinct.
   const mats = [START_ORIENT.east, START_ORIENT.west, START_ORIENT.top, START_ORIENT.bottom, START_ORIENT.south, START_ORIENT.north]
     .map((c) => new THREE.MeshStandardMaterial({
       color: new THREE.Color(COLOURS[c].hex),
       emissive: new THREE.Color(COLOURS[c].hex),
-      emissiveIntensity: 0.8, roughness: 0.35, metalness: 0.1,
+      emissiveIntensity: 0.55, roughness: 0.5, metalness: 0.1,
     }));
   cubeMesh = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.78, 0.78), mats);
   const cubeEdges = new THREE.LineSegments(
@@ -430,7 +454,21 @@ function buildLevelScene(level) {
   );
   cubeMesh.add(cubeEdges);
   levelGroup.add(cubeMesh);
-  cubeLight = new THREE.PointLight(accent, 5, 9);
+  // M3: tile highlight under the cube — the M2 playtester miscounted
+  // columns in perspective; a glowing cell marker under the cube
+  // makes its grid position (and the beacon it stands on) unambiguous.
+  cubeRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.4, 0.52, 4),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  cubeRing.rotation.x = -Math.PI / 2;
+  cubeRing.rotation.z = Math.PI / 4;
+  cubeRing.position.y = 0.02;
+  levelGroup.add(cubeRing);
+  // M3 eye-check: intensity 5 parked 0.8 above the cube burned a
+  // white specular core into the top face. 2.5 keeps the glow
+  // without erasing the colour.
+  cubeLight = new THREE.PointLight(accent, 2.5, 9);
   levelGroup.add(cubeLight);
   scene.add(levelGroup);
   const run = state.phase === 'menu' ? state.demoRun : state.run;
@@ -440,10 +478,15 @@ function placeCube(run, snap = false) {
   if (!cubeMesh) return;
   const w = cellToWorld(currentLevel, run.x, run.y);
   cubeMesh.position.set(w.x, 0.39, w.z);
+  cubeMesh.scale.set(1, 1, 1);
   if (snap) cubeMesh.quaternion.copy(quatForOrient(run.orient));
-  if (cubeLight) cubeLight.position.set(w.x, 1.2, w.z);
+  if (cubeLight) cubeLight.position.set(w.x, 2.2, w.z);
+  if (cubeRing) cubeRing.position.set(w.x, 0.02, w.z);
 }
 function syncBeaconVisuals(run, t) {
+  // The tile marker wears the down-face colour: the cell under the
+  // cube literally shows which face is touching it.
+  if (cubeRing && run) cubeRing.material.color.set(COLOURS[run.orient.bottom].hex);
   for (const v of beaconVisuals) {
     const lit = run.lit[v.index];
     v.gem.position.y = v.baseY + Math.sin(t * 2 + v.index * 1.7) * 0.07;
@@ -498,7 +541,10 @@ function queueRoll(dir) {
   // reorientation loop plus change) and a drop fires the denied cue.
   if (rollQueue.length >= 6) {
     state.lastDenied = 'queuefull';
-    feedback('denied');
+    feedback('queuefull');
+    // M3: the drop used to be a bare buzz with no words (the M2
+    // desync's last silent corner). Name it.
+    toast('Too fast — let the cube land first');
     return false;
   }
   rollQueue.push(dir);
@@ -510,9 +556,19 @@ function doRoll(run, dir, isDemo = false) {
   if (outcome === 'wall' || outcome === 'nomoves') {
     if (!isDemo) {
       state.lastDenied = ev && ev.type ? ev.type : outcome;
-      feedback('denied');
-      if (outcome === 'wall') toast('Wall — the cube can\'t roll that way');
-      else toast('No moves left');
+      const cw = cellToWorld(currentLevel, run.x, run.y);
+      const cpos = { x: cw.x, y: 0.5, z: cw.z, hex: COLOURS[run.orient.bottom].hex };
+      if (outcome === 'wall') {
+        // M3: the wall tier (thunk + sparks) plus a visible bump —
+        // the cube leans into the wall and springs back, so the
+        // refusal reads on the cube itself, not only in the toast.
+        feedback('wall', cpos);
+        bumpAnim = { t: 0, dur: 0.18, dir };
+        toast('Wall — the cube can\'t roll that way');
+      } else {
+        feedback('denied', cpos);
+        toast('No moves left');
+      }
     }
     return outcome;
   }
@@ -528,7 +584,10 @@ function doRoll(run, dir, isDemo = false) {
     toQuat: quatForOrient(run.orient),
     outcome, dir, isDemo,
   };
-  if (!isDemo) { playSfx('roll'); state.fxCounts.roll++; }
+  // M3: the roll goes through the full feedback tier (thock +
+  // trauma 0.1 + sparks at the take-off cell) instead of a bare
+  // SFX call — every event fires its bundle, roll included.
+  if (!isDemo) feedback('roll', { x: fromW.x, y: 0.2, z: fromW.z, hex: COLOURS[run.orient.bottom].hex });
   return outcome;
 }
 function landRoll() {
@@ -541,8 +600,9 @@ function landRoll() {
   const w = cellToWorld(currentLevel, run.x, run.y);
   const pos = { x: w.x, y: 0.5, z: w.z, hex: '#22e6ff' };
   spawnParticles(w.x, 0.1, w.z, '#9db8d6', 5, 1.2, 1.0);
+  landSquashT = 0.18; // M3: the cube lands with weight, not a teleport-stop
   if (anim.outcome === 'fell') {
-    feedback('fell', { ...pos, hex: COLOURS[run.orient.bottom].hex });
+    feedback('fell', { ...pos, hex: COLOURS[run.orient.bottom].hex }, 'OFF THE EDGE!');
     fallAnim = { t: 0, dur: 0.65, dir: anim.dir };
     toast('Off the edge!');
     state.endTimer = 0.85;
@@ -554,11 +614,14 @@ function landRoll() {
     toast(`${COLOURS[ev.colour].name} beacon lit! (${ev.lit}/${ev.total})`);
   } else if (ev && ev.type === 'wrongface') {
     state.lastDenied = 'wrongface';
-    feedback('wrongface');
+    // M3: sparks in the beacon's own colour + a pop naming the face
+    // it wanted — the denied cue happens AT the beacon, where the
+    // player's eyes already are.
+    feedback('wrongface', { ...pos, hex: COLOURS[ev.colour].hex }, 'Needs ' + COLOURS[ev.colour].name + ' down');
     toast(`Wrong face — that beacon needs ${COLOURS[ev.colour].name} down (you landed ${COLOURS[ev.faceDown].name} down)`, 3);
   } else if (ev && ev.type === 'exitlocked') {
     state.lastDenied = 'exitlocked';
-    feedback('exitlocked');
+    feedback('exitlocked', { ...pos, hex: '#ffdf2e' }, `Locked ${ev.lit}/${ev.total}`);
     toast(`Exit locked — light every beacon first (${ev.lit}/${ev.total})`);
   }
   if (anim.outcome === 'won') {
@@ -566,7 +629,7 @@ function landRoll() {
     state.slowMoT = 0.9;
     state.endTimer = 0.9;
   } else if (anim.outcome === 'budget') {
-    feedback('budget', { ...pos, hex: '#ff5470' });
+    feedback('budget', { ...pos, hex: '#ff5470' }, 'OUT OF MOVES');
     toast('Out of moves!');
     state.endTimer = 0.7;
   }
@@ -648,6 +711,8 @@ function showMenu() {
   rollQueue = [];
   rollAnim = null;
   fallAnim = null;
+  bumpAnim = null;
+  landSquashT = 0;
   state.endTimer = null;
   hideToast();
   $('hud').classList.add('hidden');
@@ -682,6 +747,8 @@ function startLevel(id, unlockedOverride = false) {
   rollQueue = [];
   rollAnim = null;
   fallAnim = null;
+  bumpAnim = null;
+  landSquashT = 0;
   hideToast();
   buildLevelScene(state.run.level);
   placeCube(state.run, true);
@@ -768,6 +835,10 @@ function updateHUD() {
   $('hud-moves-left').textContent = left + ' left';
   const fill = $('hud-moves-fill');
   fill.style.width = clamp((left / run.level.budget) * 100, 0, 100) + '%';
+  // M3: the meter warns in stages — gold under 30% of budget, then a
+  // pulsing danger state for the last 2 moves — so running dry is
+  // never a surprise (the budget is a decision, not a trap).
+  fill.classList.toggle('warn', left > 2 && left <= Math.ceil(run.level.budget * 0.3));
   fill.classList.toggle('low', left <= 2);
 }
 
@@ -1060,12 +1131,39 @@ function frame(now) {
     cubeMesh.position.lerpVectors(rollAnim.fromPos, rollAnim.toPos, ease);
     cubeMesh.position.y = 0.39 + Math.sin(k * Math.PI) * 0.16;
     cubeMesh.quaternion.slerpQuaternions(rollAnim.fromQuat, rollAnim.toQuat, ease);
-    if (cubeLight) cubeLight.position.set(cubeMesh.position.x, 1.2, cubeMesh.position.z);
+    if (cubeLight) cubeLight.position.set(cubeMesh.position.x, 2.2, cubeMesh.position.z);
+    if (cubeRing) cubeRing.position.set(cubeMesh.position.x, 0.02, cubeMesh.position.z);
     if (k >= 1) {
       cubeMesh.position.copy(rollAnim.toPos);
       cubeMesh.quaternion.copy(rollAnim.toQuat);
       landRoll();
     }
+  }
+  // M3: wall bump — lean toward the wall, spring back. Visual only;
+  // the sim never moved (wall rolls spend no move).
+  if (bumpAnim && cubeMesh && !rollAnim) {
+    bumpAnim.t += sdt;
+    const k = clamp(bumpAnim.t / bumpAnim.dur, 0, 1);
+    const d = DIRS[bumpAnim.dir];
+    const run2 = state.run;
+    if (run2) {
+      const w2 = cellToWorld(currentLevel, run2.x, run2.y);
+      const nudge = Math.sin(k * Math.PI) * 0.14;
+      cubeMesh.position.set(w2.x + d.x * nudge, 0.39, w2.z + d.y * nudge);
+    }
+    if (k >= 1) {
+      bumpAnim = null;
+      if (run2) placeCube(run2);
+    }
+  }
+  // M3: landing squash — scale dips and recovers, snapped to exact
+  // rest at the end (never a permanently squashed cube).
+  if (landSquashT > 0 && cubeMesh) {
+    landSquashT -= sdt;
+    const k = clamp(1 - landSquashT / 0.18, 0, 1);
+    const s = Math.sin(k * Math.PI);
+    cubeMesh.scale.set(1 + 0.14 * s, 1 - 0.22 * s, 1 + 0.14 * s);
+    if (landSquashT <= 0) cubeMesh.scale.set(1, 1, 1);
   }
   // Fall animation
   if (fallAnim && cubeMesh) {
@@ -1150,6 +1248,8 @@ function feelInfo() {
     flashT: +state.flashT.toFixed(3),
     flashEnabled: settings.flash !== false,
     particlesAlive: particlesAlive(),
+    bumpActive: !!bumpAnim,
+    squash: landSquashT > 0,
     fxCounts: { ...state.fxCounts },
   };
 }
