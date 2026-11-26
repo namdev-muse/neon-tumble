@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.1 — pure simulation core (no DOM, no Three.js).
+// Neon Tumble v0.3.2 — pure simulation core (no DOM, no Three.js).
 //
 // A 3D neon cube-rolling puzzle: a cube with six distinctly coloured
 // faces rolls one cell at a time across floating grid platforms. Each
@@ -23,7 +23,7 @@
 // (BFS over position + orientation + lit mask) gives identical results
 // for identical inputs.
 
-export const VERSION = '0.3.1';
+export const VERSION = '0.3.2';
 
 export const DIRS = {
   E: { x: 1, y: 0 },

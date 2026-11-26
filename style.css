@@ -1,4 +1,4 @@
-/* Neon Tumble v0.3.1 — neon UI: anchors + containers, reference 1920x1080 expand. */
+/* Neon Tumble v0.3.2 — neon UI: anchors + containers, reference 1920x1080 expand. */
 :root {
   --cyan: #22e6ff;
   --magenta: #ff2e9e;
@@ -217,18 +217,21 @@ h3 { color: var(--gold); margin: 14px 0 6px; letter-spacing: 0.08em; }
 .hud-toast.show { opacity: 1; transform: translateX(-50%) scale(1); }
 .pops { position: fixed; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }
 .pop {
-  position: absolute; font-weight: 800; color: var(--gold); font-size: 1.05rem;
-  /* M3 re-playtest: bare gold text over a bright cube was unreadable.
-     A dark pill behind every pop guarantees contrast on any face. */
-  background: rgba(5, 5, 20, 0.78); border: 1px solid rgba(255, 223, 46, 0.55);
-  border-radius: 999px; padding: 2px 12px; white-space: nowrap;
+  position: absolute; font-weight: 900; color: #ffffff; font-size: 1.3rem;
+  letter-spacing: 0.04em;
+  /* M3 re-playtest #2: gold-on-gold pops read dim. White text on a
+     near-opaque dark pill with a gold rim, held at full opacity for
+     most of its life — readable at a glance on any face or beam. */
+  background: rgba(5, 5, 20, 0.9); border: 2px solid rgba(255, 223, 46, 0.85);
+  border-radius: 999px; padding: 3px 16px; white-space: nowrap;
   transform: translateX(-50%);
-  text-shadow: 0 0 10px rgba(255, 210, 61, 0.8), 0 2px 4px rgba(0, 0, 0, 0.8);
-  animation: pop-rise 0.9s ease-out forwards;
+  text-shadow: 0 0 12px rgba(255, 210, 61, 0.9), 0 2px 4px rgba(0, 0, 0, 0.9);
+  animation: pop-rise 1.2s ease-out forwards;
 }
 @keyframes pop-rise {
-  from { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
-  to { transform: translateX(-50%) translateY(-70px) scale(1.25); opacity: 0; }
+  0% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+  60% { transform: translateX(-50%) translateY(-42px) scale(1.18); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-70px) scale(1.25); opacity: 0; }
 }
 .hit-flash {
   position: fixed; inset: 0; z-index: 7; pointer-events: none;

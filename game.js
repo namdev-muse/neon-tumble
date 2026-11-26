@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.1 — Three.js renderer + menus + game feel.
+// Neon Tumble v0.3.2 — Three.js renderer + menus + game feel.
 // The simulation lives in physics.js (pure, no DOM); this file owns
 // the 3D scene, the screen stack, input, Web Audio SFX/music and the
 // feel tiers. Grid (x east, y south) maps to world (x east, z south);
@@ -297,7 +297,7 @@ function scorePop(text, screenX, screenY) {
   el.style.left = screenX + 'px';
   el.style.top = screenY + 'px';
   $('pops').appendChild(el);
-  setTimeout(() => el.remove(), 950);
+  setTimeout(() => el.remove(), 1250);
 }
 let toastTimer = null;
 function toast(msg, seconds = 2.2) {
@@ -414,10 +414,10 @@ function buildLevelScene(level) {
     gem.position.set(w.x, 0.55, w.z);
     levelGroup.add(gem);
     const pillar = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.16, 0.16, 1.5, 12, 1, true),
+      new THREE.CylinderGeometry(0.2, 0.2, 1.2, 12, 1, true),
       new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
     );
-    pillar.position.set(w.x, 0.75, w.z);
+    pillar.position.set(w.x, 0.6, w.z);
     levelGroup.add(pillar);
     beaconVisuals.push({ index: b.index, pad, gem, pillar, baseY: 0.55, bx: b.x, by: b.y });
   }
@@ -458,7 +458,7 @@ function buildLevelScene(level) {
   // columns in perspective; a glowing cell marker under the cube
   // makes its grid position (and the beacon it stands on) unambiguous.
   cubeRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.46, 0.62, 4),
+    new THREE.RingGeometry(0.44, 0.66, 4),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }),
   );
   cubeRing.rotation.x = -Math.PI / 2;
@@ -490,7 +490,13 @@ function syncBeaconVisuals(run, t) {
   // 0.4-0.52 ring was a 1cm sliver the cube hid — M3 re-playtest).
   if (cubeRing && run) {
     cubeRing.material.color.set(COLOURS[run.orient.bottom].hex);
-    cubeRing.material.opacity = 0.7 + Math.sin(t * 4) * 0.25;
+    const pulse = Math.sin(t * 4);
+    cubeRing.material.opacity = 0.78 + pulse * 0.22;
+    const rs = 1 + pulse * 0.06;
+    cubeRing.scale.set(rs, rs, 1);
+    // The marker belongs to the cube — when the cube falls, the
+    // frame goes with it (it used to float on the last cell).
+    cubeRing.visible = !fallAnim;
   }
   for (const v of beaconVisuals) {
     const lit = run.lit[v.index];
@@ -572,7 +578,7 @@ function doRoll(run, dir, isDemo = false) {
         // the cube leans into the wall and springs back, so the
         // refusal reads on the cube itself, not only in the toast.
         feedback('wall', { ...cpos, y: 1.1 }, 'Wall!');
-        bumpAnim = { t: 0, dur: 0.26, dir };
+        bumpAnim = { t: 0, dur: 0.34, dir, baseQuat: cubeMesh ? cubeMesh.quaternion.clone() : null };
         toast('Wall — the cube can\'t roll that way');
       } else {
         feedback('denied', cpos);
@@ -609,7 +615,7 @@ function landRoll() {
   const w = cellToWorld(currentLevel, run.x, run.y);
   const pos = { x: w.x, y: 0.5, z: w.z, hex: '#22e6ff' };
   spawnParticles(w.x, 0.1, w.z, '#9db8d6', 9, 1.6, 1.2);
-  landSquashT = 0.28; // M3: the cube lands with weight, not a teleport-stop
+  landSquashT = 0.4; // M3: the cube lands with weight, not a teleport-stop
   if (anim.outcome === 'fell') {
     feedback('fell', { ...pos, hex: COLOURS[run.orient.bottom].hex }, 'OFF THE EDGE!');
     fallAnim = { t: 0, dur: 0.65, dir: anim.dir };
@@ -1155,7 +1161,9 @@ function frame(now) {
     }
   }
   // M3: wall bump — lean toward the wall, spring back. Visual only;
-  // the sim never moved (wall rolls spend no move).
+  // the sim never moved (wall rolls spend no move). The lean is a
+  // real tilt (~18°) around the roll axis, not just a slide: a
+  // translation-only nudge read as "nothing happened" in playtests.
   if (bumpAnim && cubeMesh && !rollAnim) {
     bumpAnim.t += sdt;
     const k = clamp(bumpAnim.t / bumpAnim.dur, 0, 1);
@@ -1163,10 +1171,19 @@ function frame(now) {
     const run2 = state.run;
     if (run2) {
       const w2 = cellToWorld(currentLevel, run2.x, run2.y);
-      const nudge = Math.sin(k * Math.PI) * 0.22;
+      const s = Math.sin(k * Math.PI);
+      const nudge = s * 0.22;
       cubeMesh.position.set(w2.x + d.x * nudge, 0.39, w2.z + d.y * nudge);
+      if (bumpAnim.baseQuat) {
+        // Lean INTO the wall: E/W tilts around Z, N/S around X.
+        const axis = (bumpAnim.dir === 'E' || bumpAnim.dir === 'W') ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
+        const sign = (bumpAnim.dir === 'E' || bumpAnim.dir === 'N') ? -1 : 1;
+        const tilt = new THREE.Quaternion().setFromAxisAngle(axis, sign * s * 0.32);
+        cubeMesh.quaternion.copy(tilt).multiply(bumpAnim.baseQuat);
+      }
     }
     if (k >= 1) {
+      if (bumpAnim.baseQuat) cubeMesh.quaternion.copy(bumpAnim.baseQuat);
       bumpAnim = null;
       if (run2) placeCube(run2);
     }
@@ -1175,9 +1192,9 @@ function frame(now) {
   // rest at the end (never a permanently squashed cube).
   if (landSquashT > 0 && cubeMesh) {
     landSquashT -= sdt;
-    const k = clamp(1 - landSquashT / 0.28, 0, 1);
+    const k = clamp(1 - landSquashT / 0.4, 0, 1);
     const s = Math.sin(k * Math.PI);
-    cubeMesh.scale.set(1 + 0.18 * s, 1 - 0.3 * s, 1 + 0.18 * s);
+    cubeMesh.scale.set(1 + 0.2 * s, 1 - 0.35 * s, 1 + 0.2 * s);
     if (landSquashT <= 0) cubeMesh.scale.set(1, 1, 1);
   }
   // Fall animation
