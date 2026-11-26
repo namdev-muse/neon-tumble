@@ -25,13 +25,20 @@ the exit portal before your moves run out.
   drops the cube.
 - Score = clear bonus + unused-move efficiency + time bonus. Each clear
   earns a rank: **S** (in par moves), **A** (within par + 2), **B**
-  (cleared). Best score and rank are saved per level; clearing a level
+  (cleared). Best score and rank are saved per level and shown as a
+  badge on the level card and the clear screen; clearing a level
   unlocks the next.
+- **Endless Tumble**: seeded depths that grow as you descend — bigger
+  platforms, more beacons (1 → 6), more walls and shrinking budget
+  slack (~47% above par at depth 1, floored at 12%). Clear a depth to
+  build your streak and run score; fail and the run ends. Best streak
+  and best score are saved. Every generated depth is verified solvable
+  by the BFS solver before you see it.
 
 There is no auto-roll, no next-move hint and no solution preview — the
 cube's visible faces show its current state only.
 
-## Levels (v0.3.3)
+## Levels (v0.4.0)
 
 | # | Level | Beacons | Par | Budget |
 |---|-------|---------|-----|--------|
@@ -61,7 +68,8 @@ tumbles than the last.
 - Esc closes panels, Enter confirms on menus
 
 Playtest path (not in the player UI): `?level=N` jumps into a level,
-`?unlock=1` unlocks all levels.
+`?unlock=1` unlocks all levels, `?endless=1&seed=N&depth=N` starts
+Endless Tumble on a fixed seed/depth.
 
 ## Tech
 
@@ -71,7 +79,7 @@ Playtest path (not in the player UI): `?level=N` jumps into a level,
   BFS solver, scoring, save) with no DOM — `game.js` owns the renderer,
   menus, Web Audio synth SFX + generative music, and game feel
   (trauma shake, hit-stop, pooled particles).
-- Game feel (v0.3.3): every event — roll, beacon, wrong face, wall,
+- Game feel (v0.4.0): every event — roll, beacon, wrong face, wall,
   locked exit, edge-fall, out of moves, clear — fires a layered bundle
   (its own synth voice, sparks, trauma shake, flash, number pop) in
   the same instant; denied inputs always name the reason (the cube
@@ -96,7 +104,8 @@ npm run serve         # local server on :8942
 The bot harness gates every level: the solver bot clears in exactly par
 moves through the public roll hook; no-input, spam-one-direction and
 random-roll bots (50 seeds/level) must fail — rolling at random is not
-a strategy.
+a strategy. Endless depths are gated the same way: the solver bot
+rides to depth 8 on three seeds, random-roll fails near the start.
 
 ## License
 
