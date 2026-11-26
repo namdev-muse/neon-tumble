@@ -132,7 +132,7 @@ try {
     const b = document.getElementById('btn-play');
     return b && !b.classList.contains('hidden') && b.textContent.includes('Play');
   }));
-  check('no version text on the player-facing menu', !/v0\.4\.0|0\.4\.0/.test(menuText), menuText.slice(0, 200));
+  check('no version text on the player-facing menu', !/v0\.5\.0|0\.5\.0/.test(menuText), menuText.slice(0, 200));
   check('menu offers Endless Tumble as a secondary mode', await page.evaluate(() => {
     const b = document.getElementById('btn-endless');
     return b && !b.classList.contains('hidden') && b.textContent.includes('Endless');
@@ -156,6 +156,12 @@ try {
   check('level 1 unlocked, levels 2-12 locked on a fresh save', await page.evaluate(() => {
     const cards = [...document.querySelectorAll('#level-grid .track-card')];
     return !cards[0].disabled && cards.slice(1).every((c) => c.disabled);
+  }));
+  // M5: a locked card must never carry a rank badge (the ?level=12
+  // playtest path banks best[12].rank while unlocked stays low).
+  check('locked cards show no rank badge (M5)', await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('#level-grid .track-card')];
+    return cards.slice(1).every((c) => !c.querySelector('.tc-rank') && c.textContent.includes('Locked'));
   }));
   await page.screenshot({ timeout: 120000, path: path.join(SHOTS_DIR, 'levels-1280x720.png') });
   await page.click('#btn-levels-back');
@@ -351,6 +357,17 @@ try {
   check('last-level complete screen hides Next, titles All Levels Clear', await page12.evaluate(() =>
     document.getElementById('btn-next').classList.contains('hidden') &&
     document.getElementById('complete-title').textContent === 'All Levels Clear'));
+  // M5: clearing L12 via the ?level=12 path banks best[12] while
+  // unlocked stays low — the card must read "Best …", never
+  // "RANK …" above "Locked".
+  await page12.evaluate(() => window.__tumble.quitToMenu());
+  await page12.waitForFunction(() => window.__tumble.state.phase === 'menu', null, { timeout: 5000 });
+  await page12.click('#btn-levels');
+  await page12.waitForFunction(() => !document.getElementById('levels').classList.contains('hidden'), null, { timeout: 5000 });
+  check('cleared-via-playtest-path card shows Best, never Locked+rank (M5)', await page12.evaluate(() => {
+    const card = document.querySelectorAll('#level-grid .track-card')[11];
+    return card && card.textContent.includes('Best ') && !card.textContent.includes('Locked');
+  }));
   await page12.screenshot({ timeout: 120000, path: path.join(SHOTS_DIR, 'level12-1280x720.png') });
   console.log('render-check: level 12 shot captured');
   await context12.close();

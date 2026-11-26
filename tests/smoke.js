@@ -17,7 +17,7 @@ function check(name, cond, extra) {
 }
 
 console.log('smoke: Neon Tumble ' + VERSION);
-check('VERSION is 0.4.0', VERSION === '0.4.0');
+check('VERSION is 0.5.0', VERSION === '0.5.0');
 check('six colours defined', COLOURS.length === 6);
 
 // --- orientation math -------------------------------------------------------
