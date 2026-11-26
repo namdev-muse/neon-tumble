@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.2 — Three.js renderer + menus + game feel.
+// Neon Tumble v0.3.3 — Three.js renderer + menus + game feel.
 // The simulation lives in physics.js (pure, no DOM); this file owns
 // the 3D scene, the screen stack, input, Web Audio SFX/music and the
 // feel tiers. Grid (x east, y south) maps to world (x east, z south);
@@ -62,6 +62,8 @@ let fallAnim = null; // { t, dur, dir }
 let bumpAnim = null; // M3: wall bump — { t, dur, dir } nudge toward the wall and back
 let landSquashT = 0; // M3: landing squash timer (seconds remaining)
 let cubeRing = null; // M3: tile highlight ring under the cube
+let landRing = null; // M3: expanding landing flash ring
+let landRingT = 0; // M3: landing ring timer (seconds remaining)
 let dprCap = 2;
 let particleScale = 1;
 let fpsEma = 60;
@@ -465,6 +467,15 @@ function buildLevelScene(level) {
   cubeRing.rotation.z = Math.PI / 4;
   cubeRing.position.y = 0.03;
   levelGroup.add(cubeRing);
+  // M3: landing flash — a ring that expands and fades on every
+  // landing, so the settle reads even in a single frame.
+  landRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.42, 0.52, 32),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  landRing.rotation.x = -Math.PI / 2;
+  landRing.position.y = 0.04;
+  levelGroup.add(landRing);
   // M3 eye-check: intensity 5 parked 0.8 above the cube burned a
   // white specular core into the top face. 2.5 keeps the glow
   // without erasing the colour.
@@ -508,6 +519,17 @@ function syncBeaconVisuals(run, t) {
     // cube's top face.
     const cubeOnIt = run.x === v.bx && run.y === v.by;
     v.pillar.material.opacity = lit ? (cubeOnIt ? 0.12 : 0.35) : 0;
+    // M3 re-playtest #3: a world-vertical beam projects tilted at
+    // the frame edges (vertical vanishing point above the screen
+    // with a pitched-down camera) and reads as bent. Align the
+    // beam to the camera's up vector so it is screen-vertical
+    // from every angle, anchored at the pad.
+    if (camera) {
+      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+      v.pillar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
+      const bw = cellToWorld(currentLevel, v.bx, v.by);
+      v.pillar.position.set(bw.x + up.x * 0.6, up.y * 0.6, bw.z + up.z * 0.6);
+    }
   }
   if (exitVisual) {
     exitVisual.torus.rotation.y = t * 1.4;
@@ -578,7 +600,7 @@ function doRoll(run, dir, isDemo = false) {
         // the cube leans into the wall and springs back, so the
         // refusal reads on the cube itself, not only in the toast.
         feedback('wall', { ...cpos, y: 1.1 }, 'Wall!');
-        bumpAnim = { t: 0, dur: 0.34, dir, baseQuat: cubeMesh ? cubeMesh.quaternion.clone() : null };
+        bumpAnim = { t: 0, dur: 0.4, dir, baseQuat: cubeMesh ? cubeMesh.quaternion.clone() : null };
         toast('Wall — the cube can\'t roll that way');
       } else {
         feedback('denied', cpos);
@@ -615,7 +637,14 @@ function landRoll() {
   const w = cellToWorld(currentLevel, run.x, run.y);
   const pos = { x: w.x, y: 0.5, z: w.z, hex: '#22e6ff' };
   spawnParticles(w.x, 0.1, w.z, '#9db8d6', 9, 1.6, 1.2);
-  landSquashT = 0.4; // M3: the cube lands with weight, not a teleport-stop
+  landSquashT = 0.55; // M3: the cube lands with weight, not a teleport-stop
+  landRingT = 0.4;
+  if (landRing) {
+    landRing.position.set(w.x, 0.04, w.z);
+    landRing.material.color.set(COLOURS[run.orient.bottom].hex);
+    landRing.scale.set(1, 1, 1);
+    landRing.material.opacity = 0.9;
+  }
   if (anim.outcome === 'fell') {
     feedback('fell', { ...pos, hex: COLOURS[run.orient.bottom].hex }, 'OFF THE EDGE!');
     fallAnim = { t: 0, dur: 0.65, dir: anim.dir };
@@ -732,6 +761,7 @@ function showMenu() {
   fallAnim = null;
   bumpAnim = null;
   landSquashT = 0;
+  landRingT = 0;
   state.endTimer = null;
   hideToast();
   $('hud').classList.add('hidden');
@@ -768,6 +798,7 @@ function startLevel(id, unlockedOverride = false) {
   fallAnim = null;
   bumpAnim = null;
   landSquashT = 0;
+  landRingT = 0;
   hideToast();
   buildLevelScene(state.run.level);
   placeCube(state.run, true);
@@ -1178,7 +1209,7 @@ function frame(now) {
         // Lean INTO the wall: E/W tilts around Z, N/S around X.
         const axis = (bumpAnim.dir === 'E' || bumpAnim.dir === 'W') ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
         const sign = (bumpAnim.dir === 'E' || bumpAnim.dir === 'N') ? -1 : 1;
-        const tilt = new THREE.Quaternion().setFromAxisAngle(axis, sign * s * 0.32);
+        const tilt = new THREE.Quaternion().setFromAxisAngle(axis, sign * s * 0.42);
         cubeMesh.quaternion.copy(tilt).multiply(bumpAnim.baseQuat);
       }
     }
@@ -1192,10 +1223,19 @@ function frame(now) {
   // rest at the end (never a permanently squashed cube).
   if (landSquashT > 0 && cubeMesh) {
     landSquashT -= sdt;
-    const k = clamp(1 - landSquashT / 0.4, 0, 1);
+    const k = clamp(1 - landSquashT / 0.55, 0, 1);
     const s = Math.sin(k * Math.PI);
-    cubeMesh.scale.set(1 + 0.2 * s, 1 - 0.35 * s, 1 + 0.2 * s);
+    cubeMesh.scale.set(1 + 0.26 * s, 1 - 0.45 * s, 1 + 0.26 * s);
     if (landSquashT <= 0) cubeMesh.scale.set(1, 1, 1);
+  }
+  // M3: landing ring flash — expands and fades over 0.4s.
+  if (landRingT > 0 && landRing) {
+    landRingT -= sdt;
+    const k = clamp(1 - landRingT / 0.4, 0, 1);
+    const rs = 1 + k * 1.1;
+    landRing.scale.set(rs, rs, 1);
+    landRing.material.opacity = 0.9 * (1 - k);
+    if (landRingT <= 0) landRing.material.opacity = 0;
   }
   // Fall animation
   if (fallAnim && cubeMesh) {
