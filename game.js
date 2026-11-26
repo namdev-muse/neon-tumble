@@ -725,10 +725,15 @@ function buildLevelCards(container, onPick) {
     card.type = 'button';
     card.className = 'track-card' + (level.id === state.levelId ? ' selected' : '');
     card.disabled = !unlocked;
+    // M5: a rank badge must never sit above "Locked". Clearing a
+    // level through the ?level=N playtest path banks best[12].rank
+    // while unlocked stays lower, so the card showed "RANK B" over
+    // "Locked — clear the previous level". A banked best means the
+    // level WAS cleared: show Best + rank, never Locked + rank.
     const rank = best && best.rank ? `<span class="tc-rank rank-${best.rank}">RANK ${best.rank}</span>` : '';
     card.innerHTML = `<span class="tc-name">${level.id}. ${level.name}${rank}</span>` +
       `<span class="tc-meta">${level.beacons.length} beacon${level.beacons.length > 1 ? 's' : ''} · ${level.budget} moves · par ${level.parMoves}</span>` +
-      `<span class="tc-best">${unlocked ? (best ? 'Best ' + best.score : 'Not cleared yet') : 'Locked — clear the previous level'}</span>`;
+      `<span class="tc-best">${best ? 'Best ' + best.score : (unlocked ? 'Not cleared yet' : 'Locked — clear the previous level')}</span>`;
     card.addEventListener('click', () => onPick(level.id));
     hoverFeedback(card);
     container.appendChild(card);

@@ -23,7 +23,7 @@
 // (BFS over position + orientation + lit mask) gives identical results
 // for identical inputs.
 
-export const VERSION = '0.4.0';
+export const VERSION = '0.5.0';
 
 export const DIRS = {
   E: { x: 1, y: 0 },
