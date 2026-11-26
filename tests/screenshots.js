@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.2 — size sweep screenshots.
+// Neon Tumble v0.3.3 — size sweep screenshots.
 // Serves the game dir over local HTTP and captures the menu + gameplay
 // at 1280x720, 2560x1080 and 1080x2340 (portrait), plus a level-3
 // framing shot. Inspect every shot by eye: no clipped or overlapping
