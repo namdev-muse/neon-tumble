@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.0 — headless browser render check.
+// Neon Tumble v0.3.1 — headless browser render check.
 // Serves the game dir over local HTTP, loads it in a headless browser,
 // and asserts the M1 core, by hook and by eye:
 //   - the menu renders over a LIVE 3D demo (the solver rolls the cube
@@ -197,6 +197,10 @@ try {
     document.getElementById('hud-toast').textContent.includes('Wrong face')));
   check('wrong-face landing leaves the beacon dark', await page.evaluate(() => window.__tumble.info().lit === 0));
   check('wrong-face bundle fired (wrongface counter)', await page.evaluate(() => window.__tumble.feel().fxCounts.wrongface >= 1));
+  check('wrong-face pop pill names the needed face above the cube', await page.evaluate(() => {
+    const pop = document.querySelector('.pop');
+    return pop && pop.textContent.includes('Needs Magenta down');
+  }));
   // Restart fresh for the autopilot clear.
   await page.evaluate(() => window.__tumble.startLevel(1));
   await page.evaluate(() => window.__tumble.autopilot(true));
@@ -223,7 +227,16 @@ try {
     return s.best && s.best[1] && s.best[1].score > 0;
   }));
   check('clearing level 1 unlocks level 2', await page.evaluate(() => window.__tumble.save.unlocked >= 2));
-  await page.click('#btn-menu-complete');
+  check('rank badge is not clipped under the Next button', await page.evaluate(() => {
+    const r = document.getElementById('complete-rank').getBoundingClientRect();
+    const b = document.getElementById('btn-next').getBoundingClientRect();
+    return r.height > 0 && r.bottom <= b.top + 1;
+  }));
+  // M3 re-playtest: R must restart from the complete screen too.
+  await page.keyboard.press('r');
+  await page.waitForFunction(() => window.__tumble.state.phase === 'playing' && window.__tumble.info().moves === 0, null, { timeout: 5000 });
+  check('R restarts the level from the complete screen', true);
+  await page.evaluate(() => window.__tumble.quitToMenu());
   await page.waitForFunction(() => window.__tumble.state.phase === 'menu', null, { timeout: 5000 });
   await page.waitForTimeout(2500);
   const feelRest = await page.evaluate(() => window.__tumble.feel());
