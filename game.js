@@ -1,4 +1,4 @@
-// Neon Tumble v0.4.0 — Three.js renderer + menus + game feel.
+// Neon Tumble v1.0.0 — Three.js renderer + menus + game feel.
 // The simulation lives in physics.js (pure, no DOM); this file owns
 // the 3D scene, the screen stack, input, Web Audio SFX/music and the
 // feel tiers. Grid (x east, y south) maps to world (x east, z south);

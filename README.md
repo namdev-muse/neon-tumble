@@ -38,7 +38,7 @@ the exit portal before your moves run out.
 There is no auto-roll, no next-move hint and no solution preview — the
 cube's visible faces show its current state only.
 
-## Levels (v0.4.0)
+## Levels (v1.0.0)
 
 | # | Level | Beacons | Par | Budget |
 |---|-------|---------|-----|--------|
@@ -79,7 +79,7 @@ Endless Tumble on a fixed seed/depth.
   BFS solver, scoring, save) with no DOM — `game.js` owns the renderer,
   menus, Web Audio synth SFX + generative music, and game feel
   (trauma shake, hit-stop, pooled particles).
-- Game feel (v0.4.0): every event — roll, beacon, wrong face, wall,
+- Game feel (v1.0.0): every event — roll, beacon, wrong face, wall,
   locked exit, edge-fall, out of moves, clear — fires a layered bundle
   (its own synth voice, sparks, trauma shake, flash, number pop) in
   the same instant; denied inputs always name the reason (the cube
