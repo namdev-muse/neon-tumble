@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.0 — Three.js renderer + menus + game feel.
+// Neon Tumble v0.3.1 — Three.js renderer + menus + game feel.
 // The simulation lives in physics.js (pure, no DOM); this file owns
 // the 3D scene, the screen stack, input, Web Audio SFX/music and the
 // feel tiers. Grid (x east, y south) maps to world (x east, z south);
@@ -414,12 +414,12 @@ function buildLevelScene(level) {
     gem.position.set(w.x, 0.55, w.z);
     levelGroup.add(gem);
     const pillar = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12, 0.2, 2.6, 12, 1, true),
+      new THREE.CylinderGeometry(0.16, 0.16, 1.5, 12, 1, true),
       new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
     );
-    pillar.position.set(w.x, 1.3, w.z);
+    pillar.position.set(w.x, 0.75, w.z);
     levelGroup.add(pillar);
-    beaconVisuals.push({ index: b.index, pad, gem, pillar, baseY: 0.55 });
+    beaconVisuals.push({ index: b.index, pad, gem, pillar, baseY: 0.55, bx: b.x, by: b.y });
   }
   // Exit portal
   {
@@ -458,12 +458,12 @@ function buildLevelScene(level) {
   // columns in perspective; a glowing cell marker under the cube
   // makes its grid position (and the beacon it stands on) unambiguous.
   cubeRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.4, 0.52, 4),
+    new THREE.RingGeometry(0.46, 0.62, 4),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }),
   );
   cubeRing.rotation.x = -Math.PI / 2;
   cubeRing.rotation.z = Math.PI / 4;
-  cubeRing.position.y = 0.02;
+  cubeRing.position.y = 0.03;
   levelGroup.add(cubeRing);
   // M3 eye-check: intensity 5 parked 0.8 above the cube burned a
   // white specular core into the top face. 2.5 keeps the glow
@@ -481,22 +481,31 @@ function placeCube(run, snap = false) {
   cubeMesh.scale.set(1, 1, 1);
   if (snap) cubeMesh.quaternion.copy(quatForOrient(run.orient));
   if (cubeLight) cubeLight.position.set(w.x, 2.2, w.z);
-  if (cubeRing) cubeRing.position.set(w.x, 0.02, w.z);
+  if (cubeRing) cubeRing.position.set(w.x, 0.03, w.z);
 }
 function syncBeaconVisuals(run, t) {
   // The tile marker wears the down-face colour: the cell under the
-  // cube literally shows which face is touching it.
-  if (cubeRing && run) cubeRing.material.color.set(COLOURS[run.orient.bottom].hex);
+  // cube literally shows which face is touching it. It pulses so it
+  // reads as a frame AROUND the cube, not a shadow under it (the
+  // 0.4-0.52 ring was a 1cm sliver the cube hid — M3 re-playtest).
+  if (cubeRing && run) {
+    cubeRing.material.color.set(COLOURS[run.orient.bottom].hex);
+    cubeRing.material.opacity = 0.7 + Math.sin(t * 4) * 0.25;
+  }
   for (const v of beaconVisuals) {
     const lit = run.lit[v.index];
     v.gem.position.y = v.baseY + Math.sin(t * 2 + v.index * 1.7) * 0.07;
     v.gem.rotation.y = t * (lit ? 2.4 : 1.1);
     v.pad.material.emissiveIntensity = lit ? 1.6 : 0.7 + Math.sin(t * 3 + v.index) * 0.15;
-    v.pillar.material.opacity = lit ? 0.4 : 0;
+    // M3 re-playtest fix: a lit beam the cube stands in dims to a
+    // glow — at full opacity it read as a stick poking out of the
+    // cube's top face.
+    const cubeOnIt = run.x === v.bx && run.y === v.by;
+    v.pillar.material.opacity = lit ? (cubeOnIt ? 0.12 : 0.35) : 0;
   }
   if (exitVisual) {
     exitVisual.torus.rotation.y = t * 1.4;
-    exitVisual.torus.rotation.x = Math.sin(t * 1.1) * 0.35;
+    exitVisual.torus.rotation.x = Math.sin(t * 1.1) * 0.15;
     const open = allLit(run);
     exitVisual.torus.material.emissiveIntensity = open ? 1.8 : 0.7;
     exitVisual.disc.material.emissiveIntensity = open ? 1.0 : 0.35;
@@ -562,8 +571,8 @@ function doRoll(run, dir, isDemo = false) {
         // M3: the wall tier (thunk + sparks) plus a visible bump —
         // the cube leans into the wall and springs back, so the
         // refusal reads on the cube itself, not only in the toast.
-        feedback('wall', cpos);
-        bumpAnim = { t: 0, dur: 0.18, dir };
+        feedback('wall', { ...cpos, y: 1.1 }, 'Wall!');
+        bumpAnim = { t: 0, dur: 0.26, dir };
         toast('Wall — the cube can\'t roll that way');
       } else {
         feedback('denied', cpos);
@@ -599,8 +608,8 @@ function landRoll() {
   const ev = run.lastEvent;
   const w = cellToWorld(currentLevel, run.x, run.y);
   const pos = { x: w.x, y: 0.5, z: w.z, hex: '#22e6ff' };
-  spawnParticles(w.x, 0.1, w.z, '#9db8d6', 5, 1.2, 1.0);
-  landSquashT = 0.18; // M3: the cube lands with weight, not a teleport-stop
+  spawnParticles(w.x, 0.1, w.z, '#9db8d6', 9, 1.6, 1.2);
+  landSquashT = 0.28; // M3: the cube lands with weight, not a teleport-stop
   if (anim.outcome === 'fell') {
     feedback('fell', { ...pos, hex: COLOURS[run.orient.bottom].hex }, 'OFF THE EDGE!');
     fallAnim = { t: 0, dur: 0.65, dir: anim.dir };
@@ -608,28 +617,32 @@ function landRoll() {
     state.endTimer = 0.85;
     return;
   }
+  // M3 re-playtest: pops spawned at cube-centre height hid behind
+  // the cube (4/4 beacon lits unreadable). Sparks and pops now fire
+  // ABOVE the cube, where nothing can occlude them.
+  const popPos = { ...pos, y: 1.15 };
   if (ev && ev.type === 'beacon') {
     const hex = COLOURS[ev.colour].hex;
-    feedback('beacon', { ...pos, hex }, COLOURS[ev.colour].name + ' lit!');
+    feedback('beacon', { ...popPos, hex }, COLOURS[ev.colour].name + ' lit!');
     toast(`${COLOURS[ev.colour].name} beacon lit! (${ev.lit}/${ev.total})`);
   } else if (ev && ev.type === 'wrongface') {
     state.lastDenied = 'wrongface';
     // M3: sparks in the beacon's own colour + a pop naming the face
     // it wanted — the denied cue happens AT the beacon, where the
     // player's eyes already are.
-    feedback('wrongface', { ...pos, hex: COLOURS[ev.colour].hex }, 'Needs ' + COLOURS[ev.colour].name + ' down');
+    feedback('wrongface', { ...popPos, hex: COLOURS[ev.colour].hex }, 'Needs ' + COLOURS[ev.colour].name + ' down');
     toast(`Wrong face — that beacon needs ${COLOURS[ev.colour].name} down (you landed ${COLOURS[ev.faceDown].name} down)`, 3);
   } else if (ev && ev.type === 'exitlocked') {
     state.lastDenied = 'exitlocked';
-    feedback('exitlocked', { ...pos, hex: '#ffdf2e' }, `Locked ${ev.lit}/${ev.total}`);
+    feedback('exitlocked', { ...popPos, hex: '#ffdf2e' }, `Locked ${ev.lit}/${ev.total}`);
     toast(`Exit locked — light every beacon first (${ev.lit}/${ev.total})`);
   }
   if (anim.outcome === 'won') {
-    feedback('won', { ...pos, hex: '#ffdf2e' }, 'CLEAR!');
+    feedback('won', { ...popPos, hex: '#ffdf2e' }, 'CLEAR!');
     state.slowMoT = 0.9;
     state.endTimer = 0.9;
   } else if (anim.outcome === 'budget') {
-    feedback('budget', { ...pos, hex: '#ff5470' }, 'OUT OF MOVES');
+    feedback('budget', { ...popPos, hex: '#ff5470' }, 'OUT OF MOVES');
     toast('Out of moves!');
     state.endTimer = 0.7;
   }
@@ -836,10 +849,12 @@ function updateHUD() {
   const fill = $('hud-moves-fill');
   fill.style.width = clamp((left / run.level.budget) * 100, 0, 100) + '%';
   // M3: the meter warns in stages — gold under 30% of budget, then a
-  // pulsing danger state for the last 2 moves — so running dry is
-  // never a surprise (the budget is a decision, not a trap).
-  fill.classList.toggle('warn', left > 2 && left <= Math.ceil(run.level.budget * 0.3));
-  fill.classList.toggle('low', left <= 2);
+  // pulsing danger state for the last 3 moves (fill AND the "N left"
+  // text turn red) — so running dry is never a surprise (the budget
+  // is a decision, not a trap).
+  fill.classList.toggle('warn', left > 3 && left <= Math.ceil(run.level.budget * 0.3));
+  fill.classList.toggle('low', left <= 3);
+  $('hud-moves-left').classList.toggle('low', left <= 3);
 }
 
 // ---------------------------------------------------------------- settings
@@ -908,7 +923,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   switch (e.code) {
-    case 'KeyR': if (state.phase === 'playing') restartLevel(); break;
+    case 'KeyR': if (state.phase === 'playing' || state.phase === 'complete' || state.phase === 'gameover') restartLevel(); break;
     case 'KeyP': togglePause(); break;
     case 'KeyM': toggleMute(); break;
     case 'Escape':
@@ -1132,7 +1147,7 @@ function frame(now) {
     cubeMesh.position.y = 0.39 + Math.sin(k * Math.PI) * 0.16;
     cubeMesh.quaternion.slerpQuaternions(rollAnim.fromQuat, rollAnim.toQuat, ease);
     if (cubeLight) cubeLight.position.set(cubeMesh.position.x, 2.2, cubeMesh.position.z);
-    if (cubeRing) cubeRing.position.set(cubeMesh.position.x, 0.02, cubeMesh.position.z);
+    if (cubeRing) cubeRing.position.set(cubeMesh.position.x, 0.03, cubeMesh.position.z);
     if (k >= 1) {
       cubeMesh.position.copy(rollAnim.toPos);
       cubeMesh.quaternion.copy(rollAnim.toQuat);
@@ -1148,7 +1163,7 @@ function frame(now) {
     const run2 = state.run;
     if (run2) {
       const w2 = cellToWorld(currentLevel, run2.x, run2.y);
-      const nudge = Math.sin(k * Math.PI) * 0.14;
+      const nudge = Math.sin(k * Math.PI) * 0.22;
       cubeMesh.position.set(w2.x + d.x * nudge, 0.39, w2.z + d.y * nudge);
     }
     if (k >= 1) {
@@ -1160,9 +1175,9 @@ function frame(now) {
   // rest at the end (never a permanently squashed cube).
   if (landSquashT > 0 && cubeMesh) {
     landSquashT -= sdt;
-    const k = clamp(1 - landSquashT / 0.18, 0, 1);
+    const k = clamp(1 - landSquashT / 0.28, 0, 1);
     const s = Math.sin(k * Math.PI);
-    cubeMesh.scale.set(1 + 0.14 * s, 1 - 0.22 * s, 1 + 0.14 * s);
+    cubeMesh.scale.set(1 + 0.18 * s, 1 - 0.3 * s, 1 + 0.18 * s);
     if (landSquashT <= 0) cubeMesh.scale.set(1, 1, 1);
   }
   // Fall animation

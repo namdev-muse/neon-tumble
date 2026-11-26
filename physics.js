@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.0 — pure simulation core (no DOM, no Three.js).
+// Neon Tumble v0.3.1 — pure simulation core (no DOM, no Three.js).
 //
 // A 3D neon cube-rolling puzzle: a cube with six distinctly coloured
 // faces rolls one cell at a time across floating grid platforms. Each
@@ -23,7 +23,7 @@
 // (BFS over position + orientation + lit mask) gives identical results
 // for identical inputs.
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.3.1';
 
 export const DIRS = {
   E: { x: 1, y: 0 },
@@ -533,8 +533,8 @@ export const FEEDBACK = {
   // player can tell a wrong face from a wall from a locked exit by
   // ear and eye, not only by toast (Tide lesson: never silence, and
   // never the same buzz for three different mistakes).
-  wrongface: { trauma: 0.12, hitStop: 0, sfx: 'wrongface', flash: 0, particles: 8 },
-  wall: { trauma: 0.08, hitStop: 0, sfx: 'wall', flash: 0, particles: 6 },
+  wrongface: { trauma: 0.12, hitStop: 0, sfx: 'wrongface', flash: 0, particles: 12 },
+  wall: { trauma: 0.18, hitStop: 0, sfx: 'wall', flash: 0, particles: 6 },
   exitlocked: { trauma: 0.12, hitStop: 0, sfx: 'exitlocked', flash: 0, particles: 8 },
   fell: { trauma: 0.8, hitStop: 0.12, sfx: 'fall', flash: 0.18, particles: 30 },
   budget: { trauma: 0.6, hitStop: 0.1, sfx: 'fail', flash: 0.12, particles: 16 },

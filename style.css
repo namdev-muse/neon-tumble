@@ -1,4 +1,4 @@
-/* Neon Tumble v0.3.0 — neon UI: anchors + containers, reference 1920x1080 expand. */
+/* Neon Tumble v0.3.1 — neon UI: anchors + containers, reference 1920x1080 expand. */
 :root {
   --cyan: #22e6ff;
   --magenta: #ff2e9e;
@@ -81,6 +81,11 @@ h2 {
 .big-score { font-size: 1.6rem; color: var(--gold); margin: 6px 0; font-weight: 700; }
 .gameover-detail { font-size: 1.05rem; font-weight: 400; color: var(--text); margin: 6px 0; line-height: 1.5; }
 .complete-best { color: var(--muted); margin: 4px 0; }
+/* M3 re-playtest: the rank line sat at the panel's scroll edge on
+   short viewports. Tighten the end-screen rhythm so score, parts,
+   detail, best, rank and buttons all fit without scrolling. */
+#complete p, #gameover p { margin: 5px 0; }
+#complete .btn, #gameover .btn { margin-top: 8px; }
 .complete-rank-badge { font-weight: 800; letter-spacing: 0.08em; }
 .complete-rank-badge.rank-S { color: var(--gold); text-shadow: 0 0 10px rgba(255, 210, 61, 0.7); }
 .complete-rank-badge.rank-A { color: var(--cyan); }
@@ -200,6 +205,7 @@ h3 { color: var(--gold); margin: 14px 0 6px; letter-spacing: 0.08em; }
 #hud-moves-fill.low { background: linear-gradient(90deg, #ff5470, #ff8a3d); animation: moves-low-pulse 0.7s ease-in-out infinite alternate; }
 @keyframes moves-low-pulse { from { filter: brightness(0.75); } to { filter: brightness(1.35); } }
 #hud-moves-left { font-size: 0.85rem; color: var(--gold); min-width: 3.5em; }
+#hud-moves-left.low { color: var(--danger); animation: moves-low-pulse 0.7s ease-in-out infinite alternate; }
 .hud-toast {
   position: fixed; z-index: 6; left: 50%; top: 18%;
   transform: translateX(-50%) scale(0.9);
@@ -211,13 +217,18 @@ h3 { color: var(--gold); margin: 14px 0 6px; letter-spacing: 0.08em; }
 .hud-toast.show { opacity: 1; transform: translateX(-50%) scale(1); }
 .pops { position: fixed; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }
 .pop {
-  position: absolute; font-weight: 800; color: var(--gold);
+  position: absolute; font-weight: 800; color: var(--gold); font-size: 1.05rem;
+  /* M3 re-playtest: bare gold text over a bright cube was unreadable.
+     A dark pill behind every pop guarantees contrast on any face. */
+  background: rgba(5, 5, 20, 0.78); border: 1px solid rgba(255, 223, 46, 0.55);
+  border-radius: 999px; padding: 2px 12px; white-space: nowrap;
+  transform: translateX(-50%);
   text-shadow: 0 0 10px rgba(255, 210, 61, 0.8), 0 2px 4px rgba(0, 0, 0, 0.8);
   animation: pop-rise 0.9s ease-out forwards;
 }
 @keyframes pop-rise {
-  from { transform: translateY(0) scale(1); opacity: 1; }
-  to { transform: translateY(-46px) scale(1.25); opacity: 0; }
+  from { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+  to { transform: translateX(-50%) translateY(-70px) scale(1.25); opacity: 0; }
 }
 .hit-flash {
   position: fixed; inset: 0; z-index: 7; pointer-events: none;
