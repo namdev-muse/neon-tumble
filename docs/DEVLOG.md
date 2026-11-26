@@ -1,5 +1,21 @@
 # Neon Tumble — devlog
 
+## v0.2.1 — M2 playtest fixes (2026-11-26)
+
+The first live FUN playtest of the 12-level build came back NO-GO:
+budgets felt punishing (one mistake costs a ~4-move reorientation
+loop, and +5 slack doesn't cover it on a 30-move level), Gold/Orange
+and Magenta/Violet were still too close under the glow, and batched
+inputs past the old queue cap of 3 were silently dropped — desyncing
+the player's mental model from the cube. (The report's "rotates and
+spends a move without moving" is impossible in the sim, where a roll
+is atomic; the silent queue drop is the real defect.) Fixes: budget
+slack raised to ~+30% on levels 4–12 (ranks still demand par for S),
+palette pushed apart (Magenta #ff2e9e, Gold #ffdf2e, Violet #9d4dff,
+Orange #ff5200), input queue cap 3→6 with a named denied cue on drop,
+scroll-snap on the menu level strip, plus a rapid-input regression
+check in the render test. Re-playtested after this push.
+
 ## v0.2.0 — M2 level craft (2026-11-26)
 
 Twelve hand-crafted levels with a real difficulty curve. The nine new
