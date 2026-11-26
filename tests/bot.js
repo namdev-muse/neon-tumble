@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.3 — bot harness (anti-slop gates).
+// Neon Tumble v0.4.0 — bot harness (anti-slop gates).
 // Run: node tests/bot.js
 //
 // Gates:
@@ -17,7 +17,7 @@
 //    faces is the skill, flailing is not. (Prism lesson: the honest
 //    gate is solver 100% vs random far below it, plus the deterministic
 //    dumb bots at 0%.)
-import { LEVELS, startRun, rollCube, solve, mulberry32, DIR_LIST } from '../physics.js';
+import { LEVELS, startRun, createRun, rollCube, solve, mulberry32, DIR_LIST, generateEndlessLevel } from '../physics.js';
 
 let failed = 0;
 function check(name, cond, extra) {
@@ -66,6 +66,51 @@ for (const level of LEVELS) {
   const rate = wins / SEEDS;
   const limit = level.id === 1 ? 0.35 : 0.10;
   check(`level ${level.id}: random-roll bot rarely wins (${wins}/${SEEDS} = ${(rate * 100).toFixed(0)}% < ${(limit * 100).toFixed(0)}%)`,
+    rate < limit, `wins=${wins}`);
+}
+
+// --- M4: Endless Tumble gates -------------------------------------------------
+// The solver bot must ride far (clear depths 1-8 on three seeds by
+// replaying real BFS solutions through the public roll hook); the
+// random-roll bot must fail near the start (depth 1 is the teaching
+// depth, so the honest Prism-style gate applies: <35% there, <10%
+// deeper); spam bots never win any depth.
+for (const seed of [1, 7, 42]) {
+  let rode = 0;
+  for (let d = 1; d <= 8; d++) {
+    const lv = generateEndlessLevel(seed, d);
+    const sol = lv && solve(lv);
+    if (!sol) break;
+    const run = createRun(lv);
+    for (const dir of sol.path) rollCube(run, dir);
+    if (run.phase !== 'won') break;
+    rode = d;
+  }
+  check(`endless seed ${seed}: solver bot rides to depth 8`, rode === 8, `rode=${rode}`);
+}
+for (const d of [1, 4, 8]) {
+  const lv = generateEndlessLevel(7, d);
+  for (const dir of DIR_LIST) {
+    const spam = createRun(lv);
+    let attempts = 0;
+    while (spam.phase === 'playing' && attempts < lv.budget * 4) { rollCube(spam, dir); attempts++; }
+    check(`endless depth ${d}: spam-${dir} bot never wins`, spam.phase !== 'won', `phase=${spam.phase}`);
+  }
+  let wins = 0;
+  const SEEDS = 50;
+  for (let s = 0; s < SEEDS; s++) {
+    const rng = mulberry32(9000 + d * 101 + s);
+    const run = createRun(lv);
+    let attempts = 0;
+    while (run.phase === 'playing' && attempts < lv.budget * 4) {
+      rollCube(run, DIR_LIST[Math.floor(rng() * DIR_LIST.length)]);
+      attempts++;
+    }
+    if (run.phase === 'won') wins++;
+  }
+  const rate = wins / SEEDS;
+  const limit = d === 1 ? 0.35 : 0.10;
+  check(`endless depth ${d}: random-roll bot fails near the start (${wins}/${SEEDS} = ${(rate * 100).toFixed(0)}% < ${(limit * 100).toFixed(0)}%)`,
     rate < limit, `wins=${wins}`);
 }
 

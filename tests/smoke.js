@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.3 — smoke tests for the pure sim (physics.js).
+// Neon Tumble v0.4.0 — smoke tests for the pure sim (physics.js).
 // Run: node tests/smoke.js
 import {
   VERSION, LEVELS, levelById, START_ORIENT, rollOrientation, orientKey,
@@ -6,6 +6,7 @@ import {
   movesLeft, beaconAt, isFloor, isWall, computeScore,
   defaultSave, serializeSave, parseSave, recordBest, isLevelUnlocked,
   FEEDBACK, FEEDBACK_TIERS, FEEDBACK_LAYERS, COLOURS,
+  generateEndlessLevel, endlessBeaconCount, endlessSlackFrac, recordEndlessBest,
 } from '../physics.js';
 
 let passed = 0;
@@ -16,7 +17,7 @@ function check(name, cond, extra) {
 }
 
 console.log('smoke: Neon Tumble ' + VERSION);
-check('VERSION is 0.3.3', VERSION === '0.3.3');
+check('VERSION is 0.4.0', VERSION === '0.4.0');
 check('six colours defined', COLOURS.length === 6);
 
 // --- orientation math -------------------------------------------------------
@@ -208,6 +209,56 @@ check('roll is a small-tier bundle (trauma in small band, no hit-stop)',
   FEEDBACK.roll.trauma >= FEEDBACK_TIERS.small.trauma[0] && FEEDBACK.roll.trauma <= FEEDBACK_TIERS.small.trauma[1] && FEEDBACK.roll.hitStop === 0);
 check('fell and budget are large-tier bundles',
   FEEDBACK.fell.trauma >= FEEDBACK_TIERS.large.trauma[0] && FEEDBACK.budget.hitStop >= 0.1);
+
+// --- endless (M4) -------------------------------------------------------------
+{
+  check('endless beacon count scales 1 -> 6', endlessBeaconCount(1) === 1 && endlessBeaconCount(3) === 2 &&
+    endlessBeaconCount(5) === 3 && endlessBeaconCount(11) === 6 && endlessBeaconCount(20) === 6);
+  check('endless slack shrinks with depth and floors at 12%',
+    endlessSlackFrac(1) > endlessSlackFrac(5) && endlessSlackFrac(5) > endlessSlackFrac(10) &&
+    endlessSlackFrac(30) === 0.12, `d1=${endlessSlackFrac(1)} d10=${endlessSlackFrac(10)}`);
+  const a = generateEndlessLevel(7, 5);
+  const b = generateEndlessLevel(7, 5);
+  check('endless generation is deterministic (seed + depth)', a && b &&
+    JSON.stringify(a.grid) === JSON.stringify(b.grid) && a.parMoves === b.parMoves && a.budget === b.budget);
+  check('endless level carries depth/seed/name', a && a.depth === 5 && a.seed === 7 && a.name === 'Depth 5' && a.endless === true);
+  let allOk = true;
+  let detail = '';
+  for (const seed of [1, 7, 42]) {
+    for (let d = 1; d <= 12; d++) {
+      const lv = generateEndlessLevel(seed, d);
+      if (!lv) { allOk = false; detail = `seed ${seed} depth ${d} null`; break; }
+      const sol = solve(lv);
+      if (!sol || sol.moves !== lv.parMoves || lv.budget <= lv.parMoves || lv.beacons.length !== endlessBeaconCount(d)) {
+        allOk = false; detail = `seed ${seed} depth ${d} par=${lv.parMoves} budget=${lv.budget} beacons=${lv.beacons.length}`;
+        break;
+      }
+      const run = createRun(lv);
+      for (const dir of sol.path) rollCube(run, dir);
+      if (run.phase !== 'won') { allOk = false; detail = `seed ${seed} depth ${d} replay phase=${run.phase}`; break; }
+    }
+    if (!allOk) break;
+  }
+  check('endless depths 1-12 (3 seeds) all solver-verified and replay to a win', allOk, detail);
+  const d1 = generateEndlessLevel(7, 1);
+  const d12 = generateEndlessLevel(7, 12);
+  check('endless platforms grow with depth', d1 && d12 && d12.cols > d1.cols && d12.rows >= d1.rows,
+    d1 && d12 ? `${d1.cols}x${d1.rows} -> ${d12.cols}x${d12.rows}` : 'null level');
+  check('endless depth 1 teaches (1 beacon, generous slack)', d1 && d1.beacons.length === 1 && d1.budget >= d1.parMoves + 4,
+    d1 ? `par=${d1.parMoves} budget=${d1.budget}` : 'null');
+  // Save: endless bests default, bank max-only, round-trip, garbage-safe.
+  const save = defaultSave();
+  check('default save has zeroed endless bests', save.endless.bestStreak === 0 && save.endless.bestScore === 0);
+  recordEndlessBest(save, 4, 9000);
+  check('recordEndlessBest banks streak + score', save.endless.bestStreak === 4 && save.endless.bestScore === 9000);
+  recordEndlessBest(save, 2, 12000);
+  check('recordEndlessBest is max-only per field', save.endless.bestStreak === 4 && save.endless.bestScore === 12000);
+  const round = parseSave(serializeSave(save));
+  check('endless bests round-trip through JSON', round.endless.bestStreak === 4 && round.endless.bestScore === 12000);
+  check('parseSave defaults endless on old saves', parseSave(JSON.stringify({ unlocked: 3 })).endless.bestStreak === 0);
+  check('parseSave sanitizes garbage endless values',
+    parseSave(JSON.stringify({ endless: { bestStreak: -5, bestScore: 'x' } })).endless.bestScore === 0);
+}
 
 console.log(`smoke: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

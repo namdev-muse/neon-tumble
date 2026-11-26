@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.3 — headless browser render check.
+// Neon Tumble v0.4.0 — headless browser render check.
 // Serves the game dir over local HTTP, loads it in a headless browser,
 // and asserts the M1 core, by hook and by eye:
 //   - the menu renders over a LIVE 3D demo (the solver rolls the cube
@@ -132,7 +132,11 @@ try {
     const b = document.getElementById('btn-play');
     return b && !b.classList.contains('hidden') && b.textContent.includes('Play');
   }));
-  check('no version text on the player-facing menu', !/v0\.2\.1|0\.2\.1/.test(menuText), menuText.slice(0, 200));
+  check('no version text on the player-facing menu', !/v0\.4\.0|0\.4\.0/.test(menuText), menuText.slice(0, 200));
+  check('menu offers Endless Tumble as a secondary mode', await page.evaluate(() => {
+    const b = document.getElementById('btn-endless');
+    return b && !b.classList.contains('hidden') && b.textContent.includes('Endless');
+  }));
   check('no engine text on the player-facing menu', !/three\.js|canvas 2d|webgl/i.test(menuText));
   check('menu lists 12 levels', await page.evaluate(() => window.__tumble.levels.length === 12));
   const demo1 = await page.evaluate(() => window.__tumble.info());
@@ -227,6 +231,8 @@ try {
     return s.best && s.best[1] && s.best[1].score > 0;
   }));
   check('clearing level 1 unlocks level 2', await page.evaluate(() => window.__tumble.save.unlocked >= 2));
+  check('rank is saved per level (best.rank set)', await page.evaluate(() =>
+    ['S', 'A', 'B'].includes(window.__tumble.save.best[1].rank)));
   check('rank badge is not clipped under the Next button', await page.evaluate(() => {
     const r = document.getElementById('complete-rank').getBoundingClientRect();
     const b = document.getElementById('btn-next').getBoundingClientRect();
@@ -243,6 +249,16 @@ try {
   check('feel state returns to rest (trauma 0, timeScale 1, flash 0)',
     feelRest.trauma === 0 && feelRest.timeScale === 1 && feelRest.flashT === 0,
     JSON.stringify(feelRest));
+  // M4: the saved rank shows as a badge on the level card, and the
+  // menu line carries the rank tally.
+  check('level card shows the saved rank badge', await page.evaluate(() => {
+    const card = document.querySelector('#level-select .track-card');
+    const badge = card && card.querySelector('.tc-rank');
+    return badge && /^RANK [SAB]$/.test(badge.textContent.trim()) && /rank-[SAB]/.test(badge.className);
+  }));
+  check('menu line carries the rank tally', await page.evaluate(() =>
+    /Ranks S×\d+ A×\d+ B×\d+/.test(document.getElementById('menu-best').textContent)),
+    await page.evaluate(() => document.getElementById('menu-best').textContent));
   await context.close();
 
   // --- pause + wall denied cue ------------------------------------------------
@@ -338,6 +354,47 @@ try {
   await page12.screenshot({ timeout: 120000, path: path.join(SHOTS_DIR, 'level12-1280x720.png') });
   console.log('render-check: level 12 shot captured');
   await context12.close();
+
+  // --- endless tumble (M4) ---------------------------------------------------------
+  const contextE = await browser.newContext({ viewport: { width: 1280, height: 720 }, timezoneId: 'Asia/Bangkok' });
+  const pageE = await newPage(contextE, 'endless');
+  await pageE.goto(`http://127.0.0.1:${port}/?endless=1&seed=7`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await pageE.waitForFunction(() => window.__tumble, null, { timeout: 30000 });
+  await pageE.waitForFunction(() => window.__tumble.state.phase === 'playing', null, { timeout: 5000 });
+  const e1 = await pageE.evaluate(() => window.__tumble.info());
+  check('?endless=1&seed=7 starts Endless Tumble at depth 1', e1.mode === 'endless' && e1.depth === 1 && e1.streak === 0, JSON.stringify({ mode: e1.mode, depth: e1.depth }));
+  check('endless HUD names the mode and depth', await pageE.evaluate(() =>
+    document.getElementById('hud-level').textContent.includes('Endless Tumble') &&
+    document.getElementById('hud-level').textContent.includes('Depth 1')));
+  check('endless depth 1 has 1 beacon', e1.total === 1, JSON.stringify(e1));
+  await pageE.screenshot({ timeout: 120000, path: path.join(SHOTS_DIR, 'endless-1280x720.png') });
+  console.log('render-check: endless shot captured');
+  await pageE.evaluate(() => window.__tumble.autopilot(true));
+  await pageE.waitForFunction(() => window.__tumble.state.phase === 'complete', null, { timeout: 120000 });
+  check('autopilot clears endless depth 1', await pageE.evaluate(() => window.__tumble.state.run.phase === 'won'));
+  check('endless complete screen shows depth, streak and run score', await pageE.evaluate(() =>
+    document.getElementById('complete-title').textContent === 'Depth 1 Clear' &&
+    /Streak 1/.test(document.getElementById('complete-detail').textContent) &&
+    /Run score \d+/.test(document.getElementById('complete-score').textContent)),
+    await pageE.evaluate(() => document.getElementById('complete-detail').textContent));
+  check('endless complete offers Next Depth', await pageE.evaluate(() =>
+    document.getElementById('btn-next').textContent === 'Next Depth' &&
+    !document.getElementById('btn-next').classList.contains('hidden')));
+  check('endless best banks after the clear', await pageE.evaluate(() =>
+    window.__tumble.save.endless.bestStreak >= 1 && window.__tumble.save.endless.bestScore > 0));
+  await pageE.click('#btn-next');
+  await pageE.waitForFunction(() => window.__tumble.info().depth === 2 && window.__tumble.state.phase === 'playing', null, { timeout: 10000 });
+  check('Next Depth advances to depth 2 with the streak intact', await pageE.evaluate(() => window.__tumble.info().streak === 1));
+  await pageE.evaluate(() => window.__tumble.quitToMenu());
+  await pageE.waitForFunction(() => window.__tumble.state.phase === 'menu', null, { timeout: 5000 });
+  check('menu shows the endless best line', await pageE.evaluate(() =>
+    /Endless best: streak 1/.test(document.getElementById('menu-hint').textContent)),
+    await pageE.evaluate(() => document.getElementById('menu-hint').textContent));
+  // Menu button starts a fresh endless run too.
+  await pageE.click('#btn-endless');
+  await pageE.waitForFunction(() => window.__tumble.state.phase === 'playing' && window.__tumble.info().mode === 'endless', null, { timeout: 10000 });
+  check('Endless Tumble menu button starts a run at depth 1', await pageE.evaluate(() => window.__tumble.info().depth === 1));
+  await contextE.close();
 
   // --- toggles + FPS guard -------------------------------------------------------
   const contextG = await browser.newContext({ viewport: { width: 1280, height: 720 }, timezoneId: 'Asia/Bangkok' });

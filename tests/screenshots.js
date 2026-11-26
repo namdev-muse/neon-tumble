@@ -1,4 +1,4 @@
-// Neon Tumble v0.3.3 — size sweep screenshots.
+// Neon Tumble v0.4.0 — size sweep screenshots.
 // Serves the game dir over local HTTP and captures the menu + gameplay
 // at 1280x720, 2560x1080 and 1080x2340 (portrait), plus a level-3
 // framing shot. Inspect every shot by eye: no clipped or overlapping
@@ -138,6 +138,21 @@ try {
     await page.waitForTimeout(4000);
     await page.screenshot({ path: path.join(SHOTS_DIR, `level12-${size.name}.png`), timeout: 120000 });
     console.log(`screenshots: level12-${size.name}.png saved`);
+    await context.close();
+  }
+  // Endless framing shot (M4: seeded depth 5 — 3 beacons, grown platform).
+  {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, timezoneId: 'Asia/Bangkok', hasTouch: true });
+    const page = await context.newPage();
+    page.on('console', (msg) => { if (msg.type() === 'error') errors.push('endless console: ' + msg.text()); });
+    page.on('pageerror', (err) => errors.push('endless pageerror: ' + String(err)));
+    await page.route(THREE_URL, (route) => route.fulfill({ path: cached }));
+    await page.goto(`http://127.0.0.1:${port}/?endless=1&seed=7&depth=5`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForFunction(() => window.__tumble && window.__tumble.state.phase === 'playing', null, { timeout: 30000 });
+    await page.evaluate(() => window.__tumble.autopilot(true));
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: path.join(SHOTS_DIR, 'endless-1280x720.png'), timeout: 120000 });
+    console.log('screenshots: endless-1280x720.png saved');
     await context.close();
   }
   fs.mkdirSync(DOCS_DIR, { recursive: true });
