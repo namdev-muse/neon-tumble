@@ -1,0 +1,76 @@
+name: CI + Deploy Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate game
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check JavaScript syntax
+        run: |
+          node --check game.js
+          node --check physics.js
+      - name: Check smoke test
+        run: node tests/smoke.js
+      - name: Run auto-play bot harness
+        run: node tests/bot.js
+      - name: Check required files exist
+        run: |
+          test -f index.html
+          test -f style.css
+          test -f game.js
+          test -f physics.js
+          test -f README.md
+          test -f LICENSE
+          test -f favicon.svg
+          test -f package.json
+          test -f tests/smoke.js
+          test -f tests/bot.js
+          test -f tests/render-check.js
+          test -f tests/screenshots.js
+          test -f .github/workflows/ci-pages.yml
+          echo "All required files present."
+      - name: Check no placeholder markers in shipped game
+        run: |
+          if grep -R "TODO\|FIXME" game.js physics.js index.html style.css; then
+            echo "Found TODO/FIXME markers"
+            exit 1
+          fi
+          echo "No placeholders found."
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      contents: read
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
