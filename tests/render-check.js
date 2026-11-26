@@ -1,4 +1,4 @@
-// Neon Tumble v0.2.0 — headless browser render check.
+// Neon Tumble v0.2.1 — headless browser render check.
 // Serves the game dir over local HTTP, loads it in a headless browser,
 // and asserts the M1 core, by hook and by eye:
 //   - the menu renders over a LIVE 3D demo (the solver rolls the cube
@@ -132,7 +132,7 @@ try {
     const b = document.getElementById('btn-play');
     return b && !b.classList.contains('hidden') && b.textContent.includes('Play');
   }));
-  check('no version text on the player-facing menu', !/v0\.2\.0|0\.2\.0/.test(menuText), menuText.slice(0, 200));
+  check('no version text on the player-facing menu', !/v0\.2\.1|0\.2\.1/.test(menuText), menuText.slice(0, 200));
   check('no engine text on the player-facing menu', !/three\.js|canvas 2d|webgl/i.test(menuText));
   check('menu lists 12 levels', await page.evaluate(() => window.__tumble.levels.length === 12));
   const demo1 = await page.evaluate(() => window.__tumble.info());
@@ -246,6 +246,17 @@ try {
   await page2.waitForFunction(() => window.__tumble.info().lastDenied === 'wall', null, { timeout: 10000 });
   check('wall roll is denied by name and spends no move', await page2.evaluate(() =>
     window.__tumble.info().moves === 3 && document.getElementById('hud-toast').textContent.includes('Wall')));
+  // Rapid-input regression (M2 playtest): six rolls fired in one batch
+  // must ALL execute — position, orientation and move count stay in
+  // lockstep (the sim rolls atomically; a silently dropped input is
+  // what desynced the playtester). E,E,S,S,W,W from (1,1) ends (1,3).
+  await page2.evaluate(() => window.__tumble.startLevel(2));
+  await page2.waitForTimeout(700); // ready beat
+  await page2.evaluate(() => { const T = window.__tumble; for (const d of ['E', 'E', 'S', 'S', 'W', 'W']) T.roll(d); });
+  await page2.waitForFunction(() => window.__tumble.info().moves === 6, null, { timeout: 15000 });
+  const rapid = await page2.evaluate(() => window.__tumble.info());
+  check('rapid batched input: all 6 rolls execute, cube ends at (1,3)',
+    rapid.moves === 6 && rapid.x === 1 && rapid.y === 3, JSON.stringify(rapid));
   await context2.close();
 
   // --- ?level=3 playtest path --------------------------------------------------
